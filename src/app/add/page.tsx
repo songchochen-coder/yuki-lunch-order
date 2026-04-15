@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { getSettings } from '@/lib/settings';
 import { MenuTemplate, OrderItem, Member } from '@/lib/types';
-import { getMenus, getMembers, createOrder } from '@/lib/client-db';
+import { getMenus, getMembers, createOrder, saveMenu } from '@/lib/client-db';
 
 export default function AddPage() {
   const router = useRouter();
@@ -97,6 +97,14 @@ export default function AddPage() {
 
     setSaving(true);
     try {
+      // Save to menu database (manual input also builds menu library)
+      if (finalRestaurant && (finalItems.length > 0 || finalItemsText)) {
+        const itemsForMenu = finalItems.length > 0
+          ? finalItems
+          : [{ name: finalItemsText, price: finalAmount, quantity: 1 }];
+        saveMenu({ restaurant: finalRestaurant, items: itemsForMenu });
+      }
+
       if (selectedUsers.length > 1) {
         const splitAmount = Math.round(finalAmount / selectedUsers.length);
         for (const u of selectedUsers) {

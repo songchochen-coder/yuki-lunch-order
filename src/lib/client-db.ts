@@ -42,7 +42,6 @@ export function createOrder(order: Omit<LunchOrder, 'id' | 'createdAt'>): LunchO
   writeStore('lunch-orders', orders);
 
   deductBalance(order.user, order.totalAmount, newOrder.id, `${order.restaurant} - ${order.itemsText}`);
-  autoSaveMenu(order.restaurant, order.items);
 
   return newOrder;
 }
@@ -177,6 +176,22 @@ export function getMenus(): MenuTemplate[] {
 
 export function saveMenu(menu: { restaurant: string; items: { name: string; price: number; quantity: number }[] }): MenuTemplate {
   const menus = getMenus();
+  // If restaurant already exists, merge items instead of creating duplicate
+  const existing = menus.find(m => m.restaurant === menu.restaurant);
+  if (existing) {
+    for (const item of menu.items) {
+      const existingItem = existing.items.find(i => i.name === item.name);
+      if (existingItem) {
+        existingItem.price = item.price;
+      } else {
+        existing.items.push({ name: item.name, price: item.price, quantity: 1 });
+      }
+    }
+    existing.lastUsed = new Date().toISOString().split('T')[0];
+    existing.useCount += 1;
+    writeStore('lunch-menus', menus);
+    return existing;
+  }
   const newMenu: MenuTemplate = {
     ...menu,
     id: generateId(),
