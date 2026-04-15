@@ -97,17 +97,6 @@ export default function ScanPage() {
         <h1 className="text-xl font-bold">📷 拍照辨識菜單</h1>
       </div>
 
-      <div className="card mb-4">
-        <label className="input-label">誰要點餐？</label>
-        <div className="flex gap-2 flex-wrap">
-          {users.map(u => (
-            <button key={u} onClick={() => setPayer(u)} className={`btn flex-1 ${payer === u ? 'btn-primary' : 'btn-outline'}`}>
-              {u}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {loading ? (
         <div className="card flex flex-col items-center justify-center py-16 gap-4">
           <div className="w-12 h-12 rounded-full border-4 border-[var(--color-primary)] border-t-transparent animate-spin" />

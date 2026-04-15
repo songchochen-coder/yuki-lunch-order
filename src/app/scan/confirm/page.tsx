@@ -4,17 +4,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { getSettings } from '@/lib/settings';
-import type { AnalyzeResult, OrderItem, Member } from '@/lib/types';
-import { getMembers, createOrder } from '@/lib/client-db';
+import type { AnalyzeResult, OrderItem } from '@/lib/types';
+import { getMembers, createOrder, saveMenu } from '@/lib/client-db';
+
+interface UserSelection {
+  name: string;
+  items: { itemIdx: number; quantity: number }[];
+}
 
 export default function ConfirmPage() {
   const router = useRouter();
 
   const [restaurant, setRestaurant] = useState('');
-  const [items, setItems] = useState<OrderItem[]>([]);
+  const [menuItems, setMenuItems] = useState<OrderItem[]>([]);
   const [date, setDate] = useState('');
-  const [user, setUser] = useState('');
   const [users, setUsers] = useState<string[]>([]);
+  const [selections, setSelections] = useState<UserSelection[]>([]);
+  const [activeUser, setActiveUser] = useState(0);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -32,7 +38,6 @@ export default function ConfirmPage() {
     const names = m.length > 0 ? m.map(x => x.name) : settings.users;
     setUsers(names);
 
-    const selectedPayer = sessionStorage.getItem('selectedPayer');
     const stored = sessionStorage.getItem('analyzeResult');
     if (!stored) {
       router.replace('/scan');
@@ -42,56 +47,117 @@ export default function ConfirmPage() {
     try {
       const result: AnalyzeResult = JSON.parse(stored);
       setRestaurant(result.restaurant || '未知餐廳');
-      setItems(result.items || []);
+      setMenuItems(result.items || []);
       setDate(new Date().toISOString().split('T')[0]);
-      setUser(selectedPayer || settings.users[0] || '');
+      // Initialize empty selections for each user
+      setSelections(names.map(name => ({ name, items: [] })));
       setLoaded(true);
     } catch {
       router.replace('/scan');
     }
   }, [router]);
 
-  function updateItem(index: number, field: keyof OrderItem, value: string | number) {
-    setItems(prev => {
+  function updateMenuItem(index: number, field: keyof OrderItem, value: string | number) {
+    setMenuItems(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
     });
   }
 
-  function removeItem(index: number) {
-    setItems(prev => prev.filter((_, i) => i !== index));
+  function removeMenuItem(index: number) {
+    setMenuItems(prev => prev.filter((_, i) => i !== index));
+    // Also remove from all selections
+    setSelections(prev => prev.map(sel => ({
+      ...sel,
+      items: sel.items
+        .filter(si => si.itemIdx !== index)
+        .map(si => ({ ...si, itemIdx: si.itemIdx > index ? si.itemIdx - 1 : si.itemIdx })),
+    })));
   }
 
-  function addItem() {
-    setItems(prev => [...prev, { name: '', price: 0, quantity: 1 }]);
+  function addMenuItem() {
+    setMenuItems(prev => [...prev, { name: '', price: 0, quantity: 1 }]);
   }
 
-  const totalAmount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  function getUserQty(userIdx: number, itemIdx: number): number {
+    const sel = selections[userIdx];
+    if (!sel) return 0;
+    const found = sel.items.find(si => si.itemIdx === itemIdx);
+    return found ? found.quantity : 0;
+  }
 
-  async function handleSave() {
+  function setUserQty(userIdx: number, itemIdx: number, qty: number) {
+    setSelections(prev => {
+      const updated = [...prev];
+      const sel = { ...updated[userIdx], items: [...updated[userIdx].items] };
+      const existingIdx = sel.items.findIndex(si => si.itemIdx === itemIdx);
+      if (qty <= 0) {
+        if (existingIdx >= 0) sel.items.splice(existingIdx, 1);
+      } else {
+        if (existingIdx >= 0) {
+          sel.items[existingIdx] = { ...sel.items[existingIdx], quantity: qty };
+        } else {
+          sel.items.push({ itemIdx, quantity: qty });
+        }
+      }
+      updated[userIdx] = sel;
+      return updated;
+    });
+  }
+
+  function toggleUserItem(userIdx: number, itemIdx: number) {
+    const current = getUserQty(userIdx, itemIdx);
+    setUserQty(userIdx, itemIdx, current > 0 ? 0 : 1);
+  }
+
+  // Calculate per-user totals
+  function getUserTotal(userIdx: number): number {
+    const sel = selections[userIdx];
+    if (!sel) return 0;
+    return sel.items.reduce((sum, si) => {
+      const item = menuItems[si.itemIdx];
+      return sum + (item ? item.price * si.quantity : 0);
+    }, 0);
+  }
+
+  const grandTotal = selections.reduce((sum, _, idx) => sum + getUserTotal(idx), 0);
+  const usersWithOrders = selections.filter(sel => sel.items.length > 0);
+
+  function handleSave() {
     if (!restaurant.trim()) { setError('請輸入餐廳名稱'); return; }
-    if (items.length === 0) { setError('至少需要一個品項'); return; }
-    if (!user) { setError('請選擇點餐人'); return; }
+    if (usersWithOrders.length === 0) { setError('至少一位成員要點餐'); return; }
 
     setSaving(true);
     setError('');
 
     try {
-      const itemsText = items.map(i => `${i.name}x${i.quantity}`).join(', ');
-      createOrder({
-        restaurant: restaurant.trim(),
-        items,
-        itemsText,
-        totalAmount,
-        date,
-        user,
-        notes: notes.trim(),
-      });
+      // Save menu template
+      saveMenu({ restaurant: restaurant.trim(), items: menuItems });
+
+      // Create one order per user
+      for (const sel of usersWithOrders) {
+        const orderItems: OrderItem[] = sel.items.map(si => {
+          const item = menuItems[si.itemIdx];
+          return { name: item.name, price: item.price, quantity: si.quantity };
+        });
+        const total = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
+        const itemsText = orderItems.map(i => `${i.name}x${i.quantity}`).join(', ');
+
+        createOrder({
+          restaurant: restaurant.trim(),
+          items: orderItems,
+          itemsText,
+          totalAmount: total,
+          date,
+          user: sel.name,
+          notes: notes.trim(),
+        });
+      }
 
       sessionStorage.removeItem('analyzeResult');
       sessionStorage.removeItem('selectedPayer');
-      showToast('儲存成功！');
+      showToast(`已為 ${usersWithOrders.length} 人建立訂單！`);
       setTimeout(() => router.push('/'), 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : '儲存失敗');
@@ -107,63 +173,158 @@ export default function ConfirmPage() {
     );
   }
 
+  const currentSel = selections[activeUser];
+
   return (
     <div className="page-container">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <button onClick={() => router.back()} className="btn btn-ghost">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
         </button>
-        <h1 className="text-xl font-bold">確認辨識結果</h1>
+        <h1 className="text-xl font-bold">團隊點餐</h1>
       </div>
 
-      {/* Restaurant */}
+      {/* Restaurant & Date */}
       <div className="card mb-3">
-        <label className="input-label">餐廳名稱</label>
-        <input type="text" className="input" value={restaurant} onChange={e => setRestaurant(e.target.value)} />
-      </div>
-
-      {/* Items */}
-      <div className="card mb-3">
-        <div className="flex items-center justify-between mb-3">
-          <label className="input-label mb-0">品項</label>
-          <button onClick={addItem} className="btn btn-ghost text-xs" style={{ color: 'var(--color-primary)' }}>+ 新增品項</button>
-        </div>
-        {items.map((item, idx) => (
-          <div key={idx} className="mb-3 pb-3 border-b last:border-0 last:mb-0 last:pb-0" style={{ borderColor: '#EEE' }}>
-            <div className="flex gap-2 items-start">
-              <div className="flex-1 flex flex-col gap-1">
-                <input type="text" className="input text-sm" value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} placeholder="品項名稱" />
-                <div className="flex gap-2">
-                  <input type="number" className="input text-sm" style={{ width: 100 }} value={item.price || ''} onChange={e => updateItem(idx, 'price', Number(e.target.value))} placeholder="價格" />
-                  <input type="number" className="input text-sm" style={{ width: 60 }} value={item.quantity || ''} onChange={e => updateItem(idx, 'quantity', Number(e.target.value))} placeholder="數量" min={1} />
-                </div>
-              </div>
-              <button onClick={() => removeItem(idx)} className="btn btn-ghost p-1 mt-1" style={{ color: 'var(--color-danger)' }}>✕</button>
-            </div>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="input-label">餐廳</label>
+            <input type="text" className="input" value={restaurant} onChange={e => setRestaurant(e.target.value)} />
           </div>
-        ))}
-        <div className="mt-3 pt-3" style={{ borderTop: '2px solid var(--color-primary)' }}>
-          <p className="text-sm font-bold">合計: ${totalAmount.toLocaleString()}</p>
+          <div style={{ width: 140 }}>
+            <label className="input-label">日期</label>
+            <input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
         </div>
       </div>
 
-      {/* Date */}
+      {/* Menu Items (editable) */}
       <div className="card mb-3">
-        <label className="input-label">日期</label>
-        <input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} />
-      </div>
-
-      {/* User */}
-      <div className="card mb-3">
-        <label className="input-label">點餐人</label>
-        <div className="flex gap-2 flex-wrap">
-          {users.map(u => (
-            <button key={u} onClick={() => setUser(u)} className={`btn flex-1 ${user === u ? 'btn-primary' : 'btn-outline'}`}>
-              {u}
-            </button>
+        <div className="flex items-center justify-between mb-2">
+          <label className="input-label mb-0">菜單品項</label>
+          <button onClick={addMenuItem} className="btn btn-ghost text-xs" style={{ color: 'var(--color-primary)' }}>+ 新增</button>
+        </div>
+        <div className="flex flex-col gap-1">
+          {menuItems.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-2" style={{ padding: '4px 0' }}>
+              <div className="flex-1 flex items-center gap-2">
+                <input type="text" className="input text-sm" style={{ flex: 1 }} value={item.name} onChange={e => updateMenuItem(idx, 'name', e.target.value)} placeholder="品項" />
+                <input type="number" className="input text-sm" style={{ width: 70 }} value={item.price || ''} onChange={e => updateMenuItem(idx, 'price', Number(e.target.value))} placeholder="$" />
+              </div>
+              <button onClick={() => removeMenuItem(idx)} className="text-xs" style={{ color: 'var(--color-danger)', padding: 4 }}>✕</button>
+            </div>
           ))}
         </div>
       </div>
+
+      {/* User tabs */}
+      <div className="card mb-3">
+        <label className="input-label">選擇成員點餐</label>
+        <div className="flex gap-1 mb-3" style={{ overflowX: 'auto' }}>
+          {users.map((u, idx) => {
+            const userTotal = getUserTotal(idx);
+            const hasItems = selections[idx]?.items.length > 0;
+            return (
+              <button
+                key={u}
+                onClick={() => setActiveUser(idx)}
+                className="btn"
+                style={{
+                  minWidth: 0, flex: '1 0 auto', fontSize: 13, padding: '8px 12px',
+                  flexDirection: 'column', gap: 2,
+                  background: activeUser === idx ? 'var(--color-primary)' : hasItems ? '#FFF3E0' : 'var(--color-bg-input)',
+                  color: activeUser === idx ? 'white' : 'var(--color-text)',
+                  border: activeUser === idx ? 'none' : hasItems ? '2px solid var(--color-primary)' : '1px solid #E0E0E0',
+                }}
+              >
+                <span>{u}</span>
+                {hasItems && <span style={{ fontSize: 11 }}>${userTotal}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Item selection for active user */}
+        <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+          點擊品項為 <strong>{users[activeUser]}</strong> 點餐：
+        </p>
+        <div className="flex flex-col gap-1">
+          {menuItems.map((item, idx) => {
+            if (!item.name) return null;
+            const qty = getUserQty(activeUser, idx);
+            const selected = qty > 0;
+            return (
+              <div
+                key={idx}
+                className="flex items-center gap-3"
+                style={{
+                  padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                  background: selected ? '#FFF3E0' : 'var(--color-bg)',
+                  border: selected ? '2px solid var(--color-primary)' : '1px solid #EEE',
+                }}
+              >
+                <button
+                  onClick={() => toggleUserItem(activeUser, idx)}
+                  style={{
+                    width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                    border: selected ? 'none' : '2px solid #CCC',
+                    background: selected ? 'var(--color-primary)' : 'transparent',
+                    color: 'white', fontSize: 14, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {selected ? '✓' : ''}
+                </button>
+                <div className="flex-1" onClick={() => toggleUserItem(activeUser, idx)}>
+                  <p className="text-sm font-semibold">{item.name}</p>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>${item.price}</p>
+                </div>
+                {selected && (
+                  <div className="flex items-center gap-2">
+                    <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => setUserQty(activeUser, idx, qty - 1)}>-</button>
+                    <span className="text-sm font-bold" style={{ minWidth: 20, textAlign: 'center' }}>{qty}</span>
+                    <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => setUserQty(activeUser, idx, qty + 1)}>+</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Current user subtotal */}
+        {currentSel && currentSel.items.length > 0 && (
+          <div className="mt-3 pt-3" style={{ borderTop: '1px solid #EEE' }}>
+            <p className="text-sm font-bold">{users[activeUser]} 小計: ${getUserTotal(activeUser).toLocaleString()}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Order Summary */}
+      {usersWithOrders.length > 0 && (
+        <div className="card mb-3" style={{ background: '#FFF3E0' }}>
+          <p className="text-sm font-bold mb-2">訂單總覽</p>
+          {usersWithOrders.map((sel, i) => {
+            const userIdx = selections.indexOf(sel);
+            const total = getUserTotal(userIdx);
+            const itemNames = sel.items.map(si => {
+              const item = menuItems[si.itemIdx];
+              return `${item?.name}x${si.quantity}`;
+            }).join(', ');
+            return (
+              <div key={i} className="flex justify-between text-xs mb-1">
+                <span>{sel.name}: {itemNames}</span>
+                <span className="font-bold">${total.toLocaleString()}</span>
+              </div>
+            );
+          })}
+          <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--color-primary)' }}>
+            <div className="flex justify-between text-sm font-bold">
+              <span>總計 ({usersWithOrders.length} 人)</span>
+              <span>${grandTotal.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notes */}
       <div className="card mb-4">
@@ -177,8 +338,8 @@ export default function ConfirmPage() {
         </div>
       )}
 
-      <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-lg btn-block mb-4">
-        {saving ? '儲存中...' : '確認儲存'}
+      <button onClick={handleSave} disabled={saving || usersWithOrders.length === 0} className="btn btn-primary btn-lg btn-block mb-4">
+        {saving ? '儲存中...' : `確認送出 (${usersWithOrders.length} 人)`}
       </button>
 
       {toast && <div className="toast">{toast}</div>}
