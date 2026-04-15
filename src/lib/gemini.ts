@@ -35,10 +35,11 @@ function getSystemPrompt(): string {
 export async function analyzeMenu(
   imageBase64: string,
   mimeType: string = 'image/jpeg',
+  clientApiKey?: string,
 ): Promise<AnalyzeResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = clientApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not configured');
+    throw new Error('請先在設定頁面填入 Gemini API Key');
   }
 
   let lastError: Error | null = null;

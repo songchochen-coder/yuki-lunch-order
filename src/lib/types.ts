@@ -43,6 +43,7 @@ export interface BalanceTransaction {
 
 export interface AppSettings {
   users: string[];
+  geminiApiKey?: string;
 }
 
 export interface AnalyzeResult {

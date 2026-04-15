@@ -58,10 +58,14 @@ export default function ScanPage() {
     try {
       setPreview(URL.createObjectURL(file));
       const base64 = await compressImage(file);
+      const settings = getSettings();
+      if (!settings.geminiApiKey) {
+        throw new Error('請先到設定頁面填入 Gemini API Key');
+      }
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mimeType: 'image/jpeg' }),
+        body: JSON.stringify({ image: base64, mimeType: 'image/jpeg', apiKey: settings.geminiApiKey }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));

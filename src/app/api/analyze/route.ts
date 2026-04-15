@@ -4,13 +4,13 @@ import { analyzeMenu } from '@/lib/gemini';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { image, mimeType } = body;
+    const { image, mimeType, apiKey } = body;
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
-    const result = await analyzeMenu(image, mimeType);
+    const result = await analyzeMenu(image, mimeType, apiKey);
     return NextResponse.json(result);
   } catch (error) {
     console.error('Analyze error:', error);

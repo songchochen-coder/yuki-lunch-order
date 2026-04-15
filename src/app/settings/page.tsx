@@ -15,6 +15,7 @@ export default function SettingsPage() {
   const [showTxUser, setShowTxUser] = useState('');
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
+  const [geminiApiKey, setGeminiApiKey] = useState('');
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -27,6 +28,7 @@ export default function SettingsPage() {
     const settings = getSettings();
     settings.users = data.map((m: Member) => m.name);
     saveSettings(settings);
+    setGeminiApiKey(settings.geminiApiKey || '');
     setLoading(false);
   }, []);
 
@@ -208,6 +210,34 @@ export default function SettingsPage() {
             確認儲值
           </button>
         </div>
+      </div>
+
+      {/* Gemini API Key */}
+      <div className="card mb-4">
+        <p className="text-sm font-semibold mb-2">Gemini API Key</p>
+        <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
+          拍照辨識菜單需要 Gemini API Key。
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', marginLeft: 4 }}>
+            前往取得 &rarr;
+          </a>
+        </p>
+        <input
+          className="input"
+          type="password"
+          placeholder="貼上你的 Gemini API Key"
+          value={geminiApiKey}
+          onChange={e => {
+            setGeminiApiKey(e.target.value);
+            const settings = getSettings();
+            settings.geminiApiKey = e.target.value;
+            saveSettings(settings);
+          }}
+        />
+        {geminiApiKey && (
+          <p className="text-xs mt-2" style={{ color: 'var(--color-success)' }}>
+            已設定 (Key 儲存在你的瀏覽器中)
+          </p>
+        )}
       </div>
 
       {toast && <div className="toast">{toast}</div>}
