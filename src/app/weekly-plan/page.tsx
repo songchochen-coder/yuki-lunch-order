@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { getSettings } from '@/lib/settings';
-import { MenuTemplate, OrderItem, getWeekDates, getWeekday, formatDate, Member } from '@/lib/types';
+import { MenuTemplate, OrderItem, getWeekday, formatDate, Member } from '@/lib/types';
 import { getMenus, getMembers, createOrder } from '@/lib/client-db';
 
 interface DayPlan {
@@ -18,20 +18,15 @@ export default function WeeklyPlanPage() {
   const router = useRouter();
   const today = new Date().toISOString().split('T')[0];
 
-  const [weekOffset, setWeekOffset] = useState(0);
-  const baseDate = new Date(today + 'T00:00:00');
-  baseDate.setDate(baseDate.getDate() + weekOffset * 7);
-  const currentDate = baseDate.toISOString().split('T')[0];
-  const weekDates = getWeekDates(currentDate);
-
   const [menus, setMenus] = useState<MenuTemplate[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [plans, setPlans] = useState<DayPlan[]>(weekDates.map(d => ({ date: d, restaurant: '', items: [], total: 0 })));
+  const [plans, setPlans] = useState<DayPlan[]>([]);
   const [editingDay, setEditingDay] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
+  const [addingDate, setAddingDate] = useState('');
 
   useEffect(() => {
     const settings = getSettings();
@@ -42,12 +37,6 @@ export default function WeeklyPlanPage() {
     setSelectedUser(names[0] || '');
   }, []);
 
-  // Reset plans when week changes
-  useEffect(() => {
-    setPlans(weekDates.map(d => ({ date: d, restaurant: '', items: [], total: 0 })));
-    setEditingDay(null);
-  }, [weekOffset]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2000);
@@ -56,6 +45,21 @@ export default function WeeklyPlanPage() {
   const filteredMenus = menus.filter(m =>
     m.restaurant.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  function addDate() {
+    if (!addingDate) return;
+    if (plans.some(p => p.date === addingDate)) {
+      showToast('此日期已新增');
+      return;
+    }
+    setPlans(prev => [...prev, { date: addingDate, restaurant: '', items: [], total: 0 }]
+      .sort((a, b) => a.date.localeCompare(b.date)));
+    setAddingDate('');
+  }
+
+  function removeDate(idx: number) {
+    setPlans(prev => prev.filter((_, i) => i !== idx));
+  }
 
   function selectMenuForDay(dayIdx: number, menu: MenuTemplate) {
     setPlans(prev => {
@@ -86,7 +90,7 @@ export default function WeeklyPlanPage() {
 
   const allUsers = members.length > 0 ? members.map(m => m.name) : getSettings().users;
 
-  async function handleConfirm() {
+  function handleConfirm() {
     if (!selectedUser) { showToast('請選擇點餐人'); return; }
     if (filledDays === 0) { showToast('至少選擇一天的餐點'); return; }
 
@@ -101,7 +105,7 @@ export default function WeeklyPlanPage() {
           totalAmount: plan.total,
           date: plan.date,
           user: selectedUser,
-          notes: '整週預排',
+          notes: '預排點餐',
         });
       }
       showToast(`已建立 ${filledDays} 天的訂單！`);
@@ -117,17 +121,25 @@ export default function WeeklyPlanPage() {
     <div className="page-container">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <button className="btn btn-ghost" onClick={() => router.back()} style={{ fontSize: 20, padding: '4px 8px' }}>←</button>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>📅 整週預排</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>📅 預排點餐</h1>
       </div>
 
-      {/* Week Navigator */}
-      <div className="card mb-4 flex items-center justify-between">
-        <button className="btn btn-ghost" onClick={() => setWeekOffset(w => w - 1)}>← 上週</button>
-        <div className="text-center">
-          <p className="text-sm font-bold">{formatDate(weekDates[0])} ~ {formatDate(weekDates[4])}</p>
-          {weekOffset === 0 && <p className="text-xs" style={{ color: 'var(--color-primary)' }}>本週</p>}
+      {/* Add date */}
+      <div className="card mb-4">
+        <label className="input-label">選擇日期</label>
+        <div className="flex gap-2">
+          <input
+            className="input flex-1"
+            type="date"
+            value={addingDate}
+            min={today}
+            onChange={e => setAddingDate(e.target.value)}
+          />
+          <button className="btn btn-primary" onClick={addDate} disabled={!addingDate}>新增</button>
         </div>
-        <button className="btn btn-ghost" onClick={() => setWeekOffset(w => w + 1)}>下週 →</button>
+        <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+          選擇要預排午餐的日期，可新增多天
+        </p>
       </div>
 
       {/* User selector */}
@@ -152,76 +164,84 @@ export default function WeeklyPlanPage() {
         </div>
       </div>
 
-      {/* Week plan grid */}
-      <div className="flex flex-col gap-3 mb-4">
-        {plans.map((plan, idx) => (
-          <div key={plan.date} className="card">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <span className="text-sm font-bold">{getWeekday(plan.date)}</span>
-                <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>{formatDate(plan.date)}</span>
+      {/* Day plans */}
+      {plans.length === 0 ? (
+        <div className="card text-center py-8 mb-4">
+          <p className="text-2xl mb-2">📅</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>還沒有選擇日期，請先新增要預排的日期</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 mb-4">
+          {plans.map((plan, idx) => (
+            <div key={plan.date} className="card">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="text-sm font-bold">{getWeekday(plan.date)}</span>
+                  <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>{formatDate(plan.date)}</span>
+                </div>
+                <div className="flex gap-3">
+                  {plan.restaurant && (
+                    <button className="text-xs" style={{ color: 'var(--color-text-muted)' }} onClick={() => clearDay(idx)}>清除餐廳</button>
+                  )}
+                  <button className="text-xs" style={{ color: 'var(--color-danger)' }} onClick={() => removeDate(idx)}>移除</button>
+                </div>
               </div>
-              {plan.restaurant && (
-                <button className="text-xs" style={{ color: 'var(--color-danger)' }} onClick={() => clearDay(idx)}>清除</button>
+
+              {editingDay === idx ? (
+                <div>
+                  <input
+                    className="input mb-2"
+                    type="text"
+                    placeholder="搜尋餐廳..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="flex flex-col gap-1" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                    {filteredMenus.map(menu => (
+                      <button
+                        key={menu.id}
+                        className="text-left p-2 rounded"
+                        style={{ background: 'var(--color-bg)', cursor: 'pointer' }}
+                        onClick={() => selectMenuForDay(idx, menu)}
+                      >
+                        <p className="text-sm font-semibold">{menu.restaurant}</p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                          {menu.items.slice(0, 3).map(i => i.name).join(', ')}
+                        </p>
+                      </button>
+                    ))}
+                    {filteredMenus.length === 0 && (
+                      <p className="text-xs text-center py-2" style={{ color: 'var(--color-text-muted)' }}>沒有符合的餐廳</p>
+                    )}
+                  </div>
+                  <button className="btn btn-ghost text-xs mt-2" onClick={() => { setEditingDay(null); setSearchQuery(''); }}>取消</button>
+                </div>
+              ) : plan.restaurant ? (
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>{plan.restaurant}</p>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    {plan.items.filter(i => i.quantity > 0).map(i => i.name).join(', ')}
+                  </p>
+                  <p className="text-sm font-bold mt-1">${plan.total.toLocaleString()}</p>
+                </div>
+              ) : (
+                <button
+                  className="btn btn-outline btn-block text-sm"
+                  onClick={() => setEditingDay(idx)}
+                >
+                  + 選擇餐廳
+                </button>
               )}
             </div>
-
-            {editingDay === idx ? (
-              <div>
-                <input
-                  className="input mb-2"
-                  type="text"
-                  placeholder="搜尋餐廳..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  autoFocus
-                />
-                <div className="flex flex-col gap-1" style={{ maxHeight: 200, overflowY: 'auto' }}>
-                  {filteredMenus.map(menu => (
-                    <button
-                      key={menu.id}
-                      className="text-left p-2 rounded"
-                      style={{ background: 'var(--color-bg)', cursor: 'pointer' }}
-                      onClick={() => selectMenuForDay(idx, menu)}
-                    >
-                      <p className="text-sm font-semibold">{menu.restaurant}</p>
-                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        {menu.items.slice(0, 3).map(i => i.name).join(', ')}
-                      </p>
-                    </button>
-                  ))}
-                  {filteredMenus.length === 0 && (
-                    <p className="text-xs text-center py-2" style={{ color: 'var(--color-text-muted)' }}>
-                      沒有符合的餐廳
-                    </p>
-                  )}
-                </div>
-                <button className="btn btn-ghost text-xs mt-2" onClick={() => { setEditingDay(null); setSearchQuery(''); }}>取消</button>
-              </div>
-            ) : plan.restaurant ? (
-              <div>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>{plan.restaurant}</p>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {plan.items.filter(i => i.quantity > 0).map(i => i.name).join(', ')}
-                </p>
-                <p className="text-sm font-bold mt-1">${plan.total.toLocaleString()}</p>
-              </div>
-            ) : (
-              <button
-                className="btn btn-outline btn-block text-sm"
-                onClick={() => setEditingDay(idx)}
-              >
-                + 選擇餐廳
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Summary */}
       {filledDays > 0 && (
         <div className="card mb-4" style={{ background: '#FFF3E0' }}>
-          <p className="text-sm font-bold">整週預覽</p>
+          <p className="text-sm font-bold">預排預覽</p>
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
             已選 {filledDays} 天，總計 ${weekTotal.toLocaleString()}
           </p>
@@ -234,7 +254,7 @@ export default function WeeklyPlanPage() {
         disabled={saving || filledDays === 0}
         style={{ marginBottom: 8, fontSize: 17, padding: '14px 0' }}
       >
-        {saving ? '建立中...' : `確認本週點餐 (${filledDays}天)`}
+        {saving ? '建立中...' : `確認預排點餐 (${filledDays}天)`}
       </button>
 
       {toast && <div className="toast">{toast}</div>}
