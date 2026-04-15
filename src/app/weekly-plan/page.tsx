@@ -17,7 +17,12 @@ interface DayPlan {
 export default function WeeklyPlanPage() {
   const router = useRouter();
   const today = new Date().toISOString().split('T')[0];
-  const weekDates = getWeekDates(today);
+
+  const [weekOffset, setWeekOffset] = useState(0);
+  const baseDate = new Date(today + 'T00:00:00');
+  baseDate.setDate(baseDate.getDate() + weekOffset * 7);
+  const currentDate = baseDate.toISOString().split('T')[0];
+  const weekDates = getWeekDates(currentDate);
 
   const [menus, setMenus] = useState<MenuTemplate[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -36,6 +41,12 @@ export default function WeeklyPlanPage() {
     const names = m.length > 0 ? m.map(x => x.name) : settings.users;
     setSelectedUser(names[0] || '');
   }, []);
+
+  // Reset plans when week changes
+  useEffect(() => {
+    setPlans(weekDates.map(d => ({ date: d, restaurant: '', items: [], total: 0 })));
+    setEditingDay(null);
+  }, [weekOffset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -107,6 +118,16 @@ export default function WeeklyPlanPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <button className="btn btn-ghost" onClick={() => router.back()} style={{ fontSize: 20, padding: '4px 8px' }}>←</button>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>📅 整週預排</h1>
+      </div>
+
+      {/* Week Navigator */}
+      <div className="card mb-4 flex items-center justify-between">
+        <button className="btn btn-ghost" onClick={() => setWeekOffset(w => w - 1)}>← 上週</button>
+        <div className="text-center">
+          <p className="text-sm font-bold">{formatDate(weekDates[0])} ~ {formatDate(weekDates[4])}</p>
+          {weekOffset === 0 && <p className="text-xs" style={{ color: 'var(--color-primary)' }}>本週</p>}
+        </div>
+        <button className="btn btn-ghost" onClick={() => setWeekOffset(w => w + 1)}>下週 →</button>
       </div>
 
       {/* User selector */}
