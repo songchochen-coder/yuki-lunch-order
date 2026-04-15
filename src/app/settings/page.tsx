@@ -1,0 +1,217 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import BottomNav from '@/components/BottomNav';
+import { Member, BalanceTransaction } from '@/lib/types';
+import { getSettings, saveSettings } from '@/lib/settings';
+import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, getTransactions as dbGetTransactions } from '@/lib/client-db';
+
+export default function SettingsPage() {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [depositUser, setDepositUser] = useState('');
+  const [depositAmount, setDepositAmount] = useState<number | ''>('');
+  const [transactions, setTransactions] = useState<BalanceTransaction[]>([]);
+  const [showTxUser, setShowTxUser] = useState('');
+  const [toast, setToast] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2000);
+  }, []);
+
+  useEffect(() => {
+    const data = dbGetMembers();
+    setMembers(data);
+    const settings = getSettings();
+    settings.users = data.map((m: Member) => m.name);
+    saveSettings(settings);
+    setLoading(false);
+  }, []);
+
+  function addMember() {
+    const name = newMemberName.trim();
+    if (!name) { showToast('請輸入成員名稱'); return; }
+    if (members.some(m => m.name === name)) { showToast('成員已存在'); return; }
+
+    const member = dbSaveMember(name);
+    setMembers(prev => [...prev, member]);
+    setNewMemberName('');
+
+    const settings = getSettings();
+    settings.users = [...settings.users, name];
+    saveSettings(settings);
+    showToast('已新增成員');
+  }
+
+  function removeMember(name: string) {
+    if (!confirm(`確定要移除「${name}」嗎？`)) return;
+    dbDeleteMember(name);
+    setMembers(prev => prev.filter(m => m.name !== name));
+
+    const settings = getSettings();
+    settings.users = settings.users.filter(u => u !== name);
+    saveSettings(settings);
+    showToast('已移除成員');
+  }
+
+  function handleDeposit() {
+    if (!depositUser) { showToast('請選擇成員'); return; }
+    if (!depositAmount || depositAmount <= 0) { showToast('請輸入金額'); return; }
+
+    try {
+      dbDeposit(depositUser, typeof depositAmount === 'number' ? depositAmount : 0);
+      setMembers(prev => prev.map(m =>
+        m.name === depositUser ? { ...m, balance: m.balance + (typeof depositAmount === 'number' ? depositAmount : 0) } : m
+      ));
+      showToast(`已為 ${depositUser} 儲值 $${depositAmount}`);
+      setDepositAmount('');
+    } catch {
+      showToast('儲值失敗');
+    }
+  }
+
+  function loadTransactions(user: string) {
+    if (showTxUser === user) { setShowTxUser(''); return; }
+    const data = dbGetTransactions(user);
+    setTransactions(data);
+    setShowTxUser(user);
+  }
+
+  if (loading) {
+    return (
+      <div className="page-container">
+        <div className="flex justify-center py-16">
+          <div className="w-8 h-8 rounded-full border-4 border-[var(--color-primary)] border-t-transparent animate-spin" />
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  return (
+    <div className="page-container">
+      <h1 className="text-xl font-bold mb-4">⚙️ 設定</h1>
+
+      {/* Members */}
+      <div className="card mb-4">
+        <p className="text-sm font-semibold mb-3">團隊成員</p>
+        <div className="flex flex-col gap-2 mb-3">
+          {members.map(m => (
+            <div key={m.name}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm">{m.name}</span>
+                  <span
+                    className="text-sm font-bold ml-2"
+                    style={{ color: m.balance < 0 ? 'var(--color-danger)' : m.balance < 200 ? 'var(--color-warning)' : 'var(--color-success)' }}
+                  >
+                    ${m.balance.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button className="text-xs" style={{ color: 'var(--color-primary)' }} onClick={() => loadTransactions(m.name)}>
+                    {showTxUser === m.name ? '收起' : '紀錄'}
+                  </button>
+                  <button className="text-xs" style={{ color: 'var(--color-danger)' }} onClick={() => removeMember(m.name)}>移除</button>
+                </div>
+              </div>
+              {showTxUser === m.name && (
+                <div className="mt-2 ml-4" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                  {transactions.length === 0 ? (
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>暫無紀錄</p>
+                  ) : (
+                    transactions.slice().reverse().slice(0, 20).map(tx => (
+                      <div key={tx.id} className="flex justify-between text-xs py-1" style={{ borderBottom: '1px solid #F0F0F0' }}>
+                        <div>
+                          <span style={{ color: tx.type === 'deposit' ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                            {tx.type === 'deposit' ? '+' : '-'}${tx.amount}
+                          </span>
+                          <span className="ml-1" style={{ color: 'var(--color-text-muted)' }}>{tx.description}</span>
+                        </div>
+                        <span style={{ color: 'var(--color-text-muted)' }}>{tx.date}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            className="input flex-1"
+            type="text"
+            placeholder="新成員名稱"
+            value={newMemberName}
+            onChange={e => setNewMemberName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addMember()}
+          />
+          <button className="btn btn-primary" onClick={addMember}>新增</button>
+        </div>
+      </div>
+
+      {/* Deposit */}
+      <div className="card mb-4">
+        <p className="text-sm font-semibold mb-3">儲值</p>
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="input-label">選擇成員</label>
+            <div className="flex gap-2 flex-wrap">
+              {members.map(m => (
+                <button
+                  key={m.name}
+                  className="btn flex-1"
+                  onClick={() => setDepositUser(m.name)}
+                  style={{
+                    fontSize: 14, padding: '8px 4px',
+                    background: depositUser === m.name ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                    color: depositUser === m.name ? 'white' : 'var(--color-text)',
+                    border: depositUser === m.name ? 'none' : '1px solid #E0E0E0',
+                  }}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="input-label">儲值金額 (NT$)</label>
+            <div className="flex gap-2">
+              {[500, 1000, 2000].map(amt => (
+                <button
+                  key={amt}
+                  className="btn flex-1"
+                  onClick={() => setDepositAmount(amt)}
+                  style={{
+                    fontSize: 14, padding: '8px 4px',
+                    background: depositAmount === amt ? 'var(--color-success)' : 'var(--color-bg-input)',
+                    color: depositAmount === amt ? 'white' : 'var(--color-text)',
+                    border: depositAmount === amt ? 'none' : '1px solid #E0E0E0',
+                  }}
+                >
+                  ${amt}
+                </button>
+              ))}
+            </div>
+            <input
+              className="input mt-2"
+              type="number"
+              inputMode="numeric"
+              placeholder="自訂金額"
+              value={depositAmount}
+              onChange={e => setDepositAmount(e.target.value === '' ? '' : Number(e.target.value))}
+            />
+          </div>
+          <button className="btn btn-primary btn-block" onClick={handleDeposit} disabled={!depositUser || !depositAmount}>
+            確認儲值
+          </button>
+        </div>
+      </div>
+
+      {toast && <div className="toast">{toast}</div>}
+      <BottomNav />
+    </div>
+  );
+}
