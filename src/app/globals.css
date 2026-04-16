@@ -192,6 +192,10 @@ body {
 .nav-item .nav-icon {
   font-size: 22px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
 }
 
 /* Progress Bar */
