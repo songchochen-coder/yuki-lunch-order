@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
-import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday } from '@/lib/types';
+import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount } from '@/lib/types';
 import { getOrdersByWeek, deleteOrder as dbDeleteOrder } from '@/lib/client-db';
 
 export default function HistoryPage() {
@@ -112,13 +112,27 @@ export default function HistoryPage() {
                     <div key={order.id} className="card flex items-center gap-3" style={{ padding: '10px var(--spacing-md)' }}>
                       <span className="text-xl">🍱</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{order.restaurant}</p>
+                        <p className="text-sm font-semibold truncate">
+                          {order.restaurant}
+                          {order.discountType && (
+                            <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
+                              {formatDiscount(order.discountType, order.discountValue)}
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                           {order.user} &middot; {order.itemsText}
                         </p>
                       </div>
                       <div className="text-right flex items-center gap-2">
-                        <p className="text-sm font-bold">${order.totalAmount.toLocaleString()}</p>
+                        <div>
+                          {order.originalAmount && order.originalAmount !== order.totalAmount && (
+                            <p className="text-xs" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through' }}>
+                              ${order.originalAmount}
+                            </p>
+                          )}
+                          <p className="text-sm font-bold">${order.totalAmount.toLocaleString()}</p>
+                        </div>
                         <button
                           onClick={() => handleDelete(order.id)}
                           className="text-xs"

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import BottomNav from '@/components/BottomNav';
-import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday } from '@/lib/types';
+import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount } from '@/lib/types';
 import { getOrders } from '@/lib/client-db';
 
 type Tab = 'order' | 'overview';
@@ -32,17 +32,19 @@ export default function StatsPage() {
     totalAmount: number;
     orderCount: number;
     itemTotals: Record<string, { quantity: number; price: number; totalAmount: number; users: string[] }>;
-    userItems: { user: string; items: string; amount: number }[];
+    userItems: { user: string; items: string; amount: number; originalAmount?: number; discountType?: 'percent' | 'amount'; discountValue?: number }[];
+    originalTotalAmount: number;
   }> = {};
 
   for (const o of dayOrders) {
     if (!restaurantOrders[o.restaurant]) {
-      restaurantOrders[o.restaurant] = { totalAmount: 0, orderCount: 0, itemTotals: {}, userItems: [] };
+      restaurantOrders[o.restaurant] = { totalAmount: 0, orderCount: 0, itemTotals: {}, userItems: [], originalTotalAmount: 0 };
     }
     const r = restaurantOrders[o.restaurant];
     r.totalAmount += o.totalAmount;
+    r.originalTotalAmount += o.originalAmount || o.totalAmount;
     r.orderCount += 1;
-    r.userItems.push({ user: o.user, items: o.itemsText, amount: o.totalAmount });
+    r.userItems.push({ user: o.user, items: o.itemsText, amount: o.totalAmount, originalAmount: o.originalAmount, discountType: o.discountType, discountValue: o.discountValue });
 
     // Aggregate individual items
     if (o.items && o.items.length > 0) {
@@ -200,9 +202,16 @@ export default function StatsPage() {
                           {info.orderCount} 人訂餐
                         </p>
                       </div>
-                      <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
-                        ${info.totalAmount.toLocaleString()}
-                      </p>
+                      <div className="text-right">
+                        {info.originalTotalAmount !== info.totalAmount && (
+                          <p className="text-xs" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through' }}>
+                            ${info.originalTotalAmount.toLocaleString()}
+                          </p>
+                        )}
+                        <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
+                          ${info.totalAmount.toLocaleString()}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Aggregated items (for calling the restaurant) */}
@@ -241,8 +250,20 @@ export default function StatsPage() {
                             <div className="flex-1">
                               <span className="font-semibold">{ui.user}</span>
                               <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>{ui.items}</span>
+                              {ui.discountType && (
+                                <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
+                                  {formatDiscount(ui.discountType, ui.discountValue)}
+                                </span>
+                              )}
                             </div>
-                            <span className="font-semibold">${ui.amount}</span>
+                            <div className="text-right">
+                              {ui.originalAmount && ui.originalAmount !== ui.amount && (
+                                <span className="mr-2" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through', fontSize: 10 }}>
+                                  ${ui.originalAmount}
+                                </span>
+                              )}
+                              <span className="font-semibold">${ui.amount}</span>
+                            </div>
                           </div>
                         ))}
                       </div>

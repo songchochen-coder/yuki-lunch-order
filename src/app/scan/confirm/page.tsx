@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { getSettings } from '@/lib/settings';
 import type { AnalyzeResult, OrderItem } from '@/lib/types';
+import { applyDiscount, formatDiscount } from '@/lib/types';
 import { getMembers, createOrder, saveMenu } from '@/lib/client-db';
 
 interface UserSelection {
@@ -22,6 +23,8 @@ export default function ConfirmPage() {
   const [selections, setSelections] = useState<UserSelection[]>([]);
   const [activeUser, setActiveUser] = useState(0);
   const [notes, setNotes] = useState('');
+  const [discountType, setDiscountType] = useState<'none' | 'percent' | 'amount'>('none');
+  const [discountValue, setDiscountValue] = useState<number | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -121,7 +124,10 @@ export default function ConfirmPage() {
     }, 0);
   }
 
-  const grandTotal = selections.reduce((sum, _, idx) => sum + getUserTotal(idx), 0);
+  const grandTotalOriginal = selections.reduce((sum, _, idx) => sum + getUserTotal(idx), 0);
+  const dType = discountType === 'none' ? undefined : discountType;
+  const dValue = typeof discountValue === 'number' ? discountValue : 0;
+  const grandTotal = applyDiscount(grandTotalOriginal, dType, dValue);
   const usersWithOrders = selections.filter(sel => sel.items.length > 0);
 
   function handleSave() {
@@ -135,20 +141,31 @@ export default function ConfirmPage() {
       // Save menu template
       saveMenu({ restaurant: restaurant.trim(), items: menuItems });
 
-      // Create one order per user
+      // Create one order per user (apply discount proportionally)
       for (const sel of usersWithOrders) {
         const orderItems: OrderItem[] = sel.items.map(si => {
           const item = menuItems[si.itemIdx];
           return { name: item.name, price: item.price, quantity: si.quantity };
         });
-        const total = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
+        const userOriginal = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
+        // For percent: apply directly; For amount: scale proportional to user's share
+        let userFinal = userOriginal;
+        if (dType === 'percent') {
+          userFinal = applyDiscount(userOriginal, dType, dValue);
+        } else if (dType === 'amount' && grandTotalOriginal > 0) {
+          const userDiscount = Math.round((dValue * userOriginal) / grandTotalOriginal);
+          userFinal = Math.max(0, userOriginal - userDiscount);
+        }
         const itemsText = orderItems.map(i => `${i.name}x${i.quantity}`).join(', ');
 
         createOrder({
           restaurant: restaurant.trim(),
           items: orderItems,
           itemsText,
-          totalAmount: total,
+          totalAmount: userFinal,
+          originalAmount: userOriginal !== userFinal ? userOriginal : undefined,
+          discountType: dType,
+          discountValue: dType ? dValue : undefined,
           date,
           user: sel.name,
           notes: notes.trim(),
@@ -318,13 +335,66 @@ export default function ConfirmPage() {
             );
           })}
           <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--color-primary)' }}>
+            {dType && grandTotalOriginal !== grandTotal && (
+              <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                <span>原價</span>
+                <span style={{ textDecoration: 'line-through' }}>${grandTotalOriginal.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm font-bold">
-              <span>總計 ({usersWithOrders.length} 人)</span>
+              <span>總計 ({usersWithOrders.length} 人){dType && ` ${formatDiscount(dType, dValue)}`}</span>
               <span>${grandTotal.toLocaleString()}</span>
             </div>
           </div>
         </div>
       )}
+
+      {/* Discount */}
+      <div className="card mb-3">
+        <label className="input-label">折扣（選填）</label>
+        <div className="flex gap-2 mb-2">
+          <button
+            className="btn flex-1"
+            onClick={() => { setDiscountType('none'); setDiscountValue(''); }}
+            style={{
+              fontSize: 13, padding: '8px 4px',
+              background: discountType === 'none' ? 'var(--color-primary)' : 'var(--color-bg-input)',
+              color: discountType === 'none' ? 'white' : 'var(--color-text)',
+              border: discountType === 'none' ? 'none' : '1px solid #E0E0E0',
+            }}
+          >無折扣</button>
+          <button
+            className="btn flex-1"
+            onClick={() => setDiscountType('percent')}
+            style={{
+              fontSize: 13, padding: '8px 4px',
+              background: discountType === 'percent' ? 'var(--color-primary)' : 'var(--color-bg-input)',
+              color: discountType === 'percent' ? 'white' : 'var(--color-text)',
+              border: discountType === 'percent' ? 'none' : '1px solid #E0E0E0',
+            }}
+          >打X折</button>
+          <button
+            className="btn flex-1"
+            onClick={() => setDiscountType('amount')}
+            style={{
+              fontSize: 13, padding: '8px 4px',
+              background: discountType === 'amount' ? 'var(--color-primary)' : 'var(--color-bg-input)',
+              color: discountType === 'amount' ? 'white' : 'var(--color-text)',
+              border: discountType === 'amount' ? 'none' : '1px solid #E0E0E0',
+            }}
+          >折 $X</button>
+        </div>
+        {discountType !== 'none' && (
+          <input
+            className="input"
+            type="number"
+            inputMode="decimal"
+            placeholder={discountType === 'percent' ? '例：9 (表示 9 折)' : '例：50 (折 50 元)'}
+            value={discountValue}
+            onChange={e => setDiscountValue(e.target.value === '' ? '' : Number(e.target.value))}
+          />
+        )}
+      </div>
 
       {/* Notes */}
       <div className="card mb-4">

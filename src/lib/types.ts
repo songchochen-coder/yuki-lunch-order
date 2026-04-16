@@ -9,11 +9,35 @@ export interface LunchOrder {
   restaurant: string;
   items: OrderItem[];
   itemsText: string;
-  totalAmount: number;
+  totalAmount: number;        // final amount after discount
+  originalAmount?: number;    // before discount
+  discountType?: 'percent' | 'amount';
+  discountValue?: number;     // percent: 9 means 9折 (0.9x); amount: $ deducted
   date: string; // YYYY-MM-DD
   user: string;
   notes: string;
   createdAt: string;
+}
+
+export function applyDiscount(
+  amount: number,
+  discountType?: 'percent' | 'amount',
+  discountValue?: number,
+): number {
+  if (!discountType || !discountValue || discountValue <= 0) return amount;
+  if (discountType === 'percent') {
+    // 9折 => value=9 => multiplier 0.9
+    const multiplier = Math.min(Math.max(discountValue, 0), 10) / 10;
+    return Math.round(amount * multiplier);
+  }
+  // amount discount
+  return Math.max(0, amount - discountValue);
+}
+
+export function formatDiscount(discountType?: 'percent' | 'amount', discountValue?: number): string {
+  if (!discountType || !discountValue || discountValue <= 0) return '';
+  if (discountType === 'percent') return `${discountValue}折`;
+  return `-$${discountValue}`;
 }
 
 export interface Member {

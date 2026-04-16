@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { getSettings } from '@/lib/settings';
-import { MenuTemplate, OrderItem, Member } from '@/lib/types';
+import { MenuTemplate, OrderItem, Member, applyDiscount, formatDiscount } from '@/lib/types';
 import { getMenus, getMembers, createOrder, saveMenu } from '@/lib/client-db';
 
 export default function AddPage() {
@@ -26,6 +26,8 @@ export default function AddPage() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
+  const [discountType, setDiscountType] = useState<'none' | 'percent' | 'amount'>('none');
+  const [discountValue, setDiscountValue] = useState<number | ''>('');
 
   useEffect(() => {
     const settings = getSettings();
@@ -81,12 +83,17 @@ export default function AddPage() {
     setSelectedUsers(names.length > 0 ? [names[0]] : []);
     setNotes('');
     setSearchQuery('');
+    setDiscountType('none');
+    setDiscountValue('');
   }
 
   function handleSave() {
     const isManual = mode === 'manual';
     const finalRestaurant = restaurant.trim();
-    const finalAmount = isManual ? (typeof manualAmount === 'number' ? manualAmount : 0) : menuTotal;
+    const originalAmount = isManual ? (typeof manualAmount === 'number' ? manualAmount : 0) : menuTotal;
+    const dType = discountType === 'none' ? undefined : discountType;
+    const dValue = typeof discountValue === 'number' ? discountValue : 0;
+    const finalAmount = applyDiscount(originalAmount, dType, dValue);
     const finalItemsText = isManual ? manualItemsText.trim() : pickedItems.map(i => `${i.name}x${i.quantity}`).join(', ');
     const finalItems = isManual ? [] : pickedItems;
 
@@ -107,12 +114,16 @@ export default function AddPage() {
 
       if (selectedUsers.length > 1) {
         const splitAmount = Math.round(finalAmount / selectedUsers.length);
+        const splitOriginal = originalAmount > 0 ? Math.round(originalAmount / selectedUsers.length) : undefined;
         for (const u of selectedUsers) {
           createOrder({
             restaurant: finalRestaurant,
             items: finalItems,
             itemsText: finalItemsText,
             totalAmount: splitAmount,
+            originalAmount: splitOriginal !== splitAmount ? splitOriginal : undefined,
+            discountType: dType,
+            discountValue: dType ? dValue : undefined,
             date,
             user: u,
             notes: `${notes.trim()} (${selectedUsers.length}人平分)`.trim(),
@@ -124,6 +135,9 @@ export default function AddPage() {
           items: finalItems,
           itemsText: finalItemsText || finalRestaurant,
           totalAmount: finalAmount,
+          originalAmount: originalAmount !== finalAmount ? originalAmount : undefined,
+          discountType: dType,
+          discountValue: dType ? dValue : undefined,
           date,
           user: selectedUsers[0],
           notes: notes.trim(),
@@ -266,6 +280,65 @@ export default function AddPage() {
             <p className="text-xs mt-2" style={{ color: 'var(--color-success)' }}>
               每人 ${Math.round((mode === 'manual' ? (typeof manualAmount === 'number' ? manualAmount : 0) : menuTotal) / selectedUsers.length).toLocaleString()}（{selectedUsers.length} 人平分）
             </p>
+          )}
+        </div>
+
+        {/* Discount */}
+        <div>
+          <label className="input-label">折扣（選填）</label>
+          <div className="flex gap-2 mb-2">
+            <button
+              className="btn flex-1"
+              onClick={() => { setDiscountType('none'); setDiscountValue(''); }}
+              style={{
+                fontSize: 13, padding: '8px 4px',
+                background: discountType === 'none' ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                color: discountType === 'none' ? 'white' : 'var(--color-text)',
+                border: discountType === 'none' ? 'none' : '1px solid #E0E0E0',
+              }}
+            >無折扣</button>
+            <button
+              className="btn flex-1"
+              onClick={() => setDiscountType('percent')}
+              style={{
+                fontSize: 13, padding: '8px 4px',
+                background: discountType === 'percent' ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                color: discountType === 'percent' ? 'white' : 'var(--color-text)',
+                border: discountType === 'percent' ? 'none' : '1px solid #E0E0E0',
+              }}
+            >打X折</button>
+            <button
+              className="btn flex-1"
+              onClick={() => setDiscountType('amount')}
+              style={{
+                fontSize: 13, padding: '8px 4px',
+                background: discountType === 'amount' ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                color: discountType === 'amount' ? 'white' : 'var(--color-text)',
+                border: discountType === 'amount' ? 'none' : '1px solid #E0E0E0',
+              }}
+            >折 $X</button>
+          </div>
+          {discountType !== 'none' && (
+            <>
+              <input
+                className="input"
+                type="number"
+                inputMode="decimal"
+                placeholder={discountType === 'percent' ? '例：9 (表示 9 折)' : '例：50 (折 50 元)'}
+                value={discountValue}
+                onChange={e => setDiscountValue(e.target.value === '' ? '' : Number(e.target.value))}
+              />
+              {typeof discountValue === 'number' && discountValue > 0 && (() => {
+                const original = mode === 'manual' ? (typeof manualAmount === 'number' ? manualAmount : 0) : menuTotal;
+                const after = applyDiscount(original, discountType, discountValue);
+                const saved = original - after;
+                return (
+                  <p className="text-xs mt-2" style={{ color: 'var(--color-success)' }}>
+                    {formatDiscount(discountType, discountValue)}：${original} → <strong>${after}</strong> (省 ${saved})
+                  </p>
+                );
+              })()}
+            </>
           )}
         </div>
 
