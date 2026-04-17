@@ -87,6 +87,8 @@ export default function AddPage() {
     setDiscountValue('');
   }
 
+  const allUsers = members.length > 0 ? members.map(m => m.name) : getSettings().users;
+
   function handleSave() {
     const isManual = mode === 'manual';
     const finalRestaurant = restaurant.trim();
@@ -144,15 +146,36 @@ export default function AddPage() {
         });
       }
       showToast('儲存成功！');
-      resetForm();
+      // Stay on page: keep restaurant & menu selected, reset user selection & quantities
+      if (mode === 'menu' && selectedMenu) {
+        // Reset item quantities to 0, keep menu visible
+        setSelectedItems(prev => prev.map(i => ({ ...i, quantity: 0 })));
+        // Move to next user
+        const currentIdx = allUsers.indexOf(selectedUsers[0]);
+        const nextUser = allUsers[(currentIdx + 1) % allUsers.length];
+        setSelectedUsers([nextUser]);
+        setNotes('');
+        setDiscountType('none');
+        setDiscountValue('');
+      } else if (mode === 'manual') {
+        // Keep restaurant, clear items
+        setManualItemsText('');
+        setManualAmount('');
+        const currentIdx = allUsers.indexOf(selectedUsers[0]);
+        const nextUser = allUsers[(currentIdx + 1) % allUsers.length];
+        setSelectedUsers([nextUser]);
+        setNotes('');
+        setDiscountType('none');
+        setDiscountValue('');
+      } else {
+        resetForm();
+      }
     } catch {
       showToast('儲存失敗');
     } finally {
       setSaving(false);
     }
   }
-
-  const allUsers = members.length > 0 ? members.map(m => m.name) : getSettings().users;
 
   return (
     <div className="page-container">
