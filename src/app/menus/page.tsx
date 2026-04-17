@@ -42,6 +42,16 @@ export default function MenusPage() {
     setEditItems(prev => prev.filter((_, i) => i !== idx));
   }
 
+  function moveEditItem(idx: number, direction: -1 | 1) {
+    setEditItems(prev => {
+      const target = idx + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const updated = [...prev];
+      [updated[idx], updated[target]] = [updated[target], updated[idx]];
+      return updated;
+    });
+  }
+
   function addEditItem() {
     setEditItems(prev => [...prev, { name: '', price: 0, quantity: 1 }]);
   }
@@ -117,10 +127,22 @@ export default function MenusPage() {
               {editingMenu === menu.id ? (
                 <div className="flex flex-col gap-2">
                   {editItems.map((item, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
+                    <div key={idx} className="flex gap-1 items-center" style={{ background: 'var(--color-bg)', borderRadius: 8, padding: '6px 8px' }}>
+                      <div className="flex flex-col" style={{ marginRight: 4 }}>
+                        <button
+                          onClick={() => moveEditItem(idx, -1)}
+                          disabled={idx === 0}
+                          style={{ fontSize: 14, lineHeight: 1, padding: '0 2px', color: idx === 0 ? '#DDD' : 'var(--color-primary)', background: 'none', border: 'none', cursor: idx === 0 ? 'default' : 'pointer' }}
+                        >▲</button>
+                        <button
+                          onClick={() => moveEditItem(idx, 1)}
+                          disabled={idx === editItems.length - 1}
+                          style={{ fontSize: 14, lineHeight: 1, padding: '0 2px', color: idx === editItems.length - 1 ? '#DDD' : 'var(--color-primary)', background: 'none', border: 'none', cursor: idx === editItems.length - 1 ? 'default' : 'pointer' }}
+                        >▼</button>
+                      </div>
                       <input className="input flex-1 text-sm" value={item.name} onChange={e => updateEditItem(idx, 'name', e.target.value)} placeholder="品項名稱" />
-                      <input className="input text-sm" style={{ width: 80 }} type="number" value={item.price || ''} onChange={e => updateEditItem(idx, 'price', Number(e.target.value))} placeholder="價格" />
-                      <button className="text-xs" style={{ color: 'var(--color-danger)' }} onClick={() => removeEditItem(idx)}>✕</button>
+                      <input className="input text-sm" style={{ width: 70 }} type="number" value={item.price || ''} onChange={e => updateEditItem(idx, 'price', Number(e.target.value))} placeholder="$" />
+                      <button style={{ color: 'var(--color-danger)', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }} onClick={() => removeEditItem(idx)}>✕</button>
                     </div>
                   ))}
                   <button className="btn btn-ghost text-xs" style={{ color: 'var(--color-primary)' }} onClick={addEditItem}>+ 新增品項</button>
