@@ -2,6 +2,7 @@ export interface OrderItem {
   name: string;
   price: number;
   quantity: number;
+  note?: string; // e.g. 加辣、不要香菜
 }
 
 export interface LunchOrder {

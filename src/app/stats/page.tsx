@@ -49,7 +49,8 @@ export default function StatsPage() {
     // Aggregate individual items
     if (o.items && o.items.length > 0) {
       for (const it of o.items) {
-        const key = it.name;
+        // Include note in key so "排骨飯(加辣)" and "排骨飯" are separate
+        const key = it.note ? `${it.name}(${it.note})` : it.name;
         if (!r.itemTotals[key]) {
           r.itemTotals[key] = { quantity: 0, price: it.price, totalAmount: 0, users: [] };
         }

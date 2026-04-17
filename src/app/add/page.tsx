@@ -69,6 +69,14 @@ export default function AddPage() {
     });
   }
 
+  function updateItemNote(idx: number, note: string) {
+    setSelectedItems(prev => {
+      const items = [...prev];
+      items[idx] = { ...items[idx], note };
+      return items;
+    });
+  }
+
   const menuTotal = selectedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const pickedItems = selectedItems.filter(i => i.quantity > 0);
 
@@ -96,7 +104,7 @@ export default function AddPage() {
     const dType = discountType === 'none' ? undefined : discountType;
     const dValue = typeof discountValue === 'number' ? discountValue : 0;
     const finalAmount = applyDiscount(originalAmount, dType, dValue);
-    const finalItemsText = isManual ? manualItemsText.trim() : pickedItems.map(i => `${i.name}x${i.quantity}`).join(', ');
+    const finalItemsText = isManual ? manualItemsText.trim() : pickedItems.map(i => `${i.name}x${i.quantity}${i.note ? `(${i.note})` : ''}`).join(', ');
     const finalItems = isManual ? [] : pickedItems;
 
     if (!finalRestaurant) { showToast('請輸入餐廳名稱'); return; }
@@ -227,20 +235,32 @@ export default function AddPage() {
             </div>
             <div className="flex flex-col gap-1">
               {selectedItems.map((item, idx) => (
-                <div key={idx} className="card flex items-center gap-3" style={{ padding: '10px var(--spacing-md)' }}>
-                  <button onClick={() => toggleItem(idx)} style={{ width: 24, height: 24, borderRadius: 6, border: item.quantity > 0 ? 'none' : '2px solid #CCC', background: item.quantity > 0 ? 'var(--color-primary)' : 'transparent', color: 'white', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {item.quantity > 0 ? '✓' : ''}
-                  </button>
-                  <div className="flex-1">
-                    <p className="text-sm">{item.name}</p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>${item.price}</p>
+                <div key={idx} className="card" style={{ padding: '10px var(--spacing-md)' }}>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => toggleItem(idx)} style={{ width: 24, height: 24, borderRadius: 6, border: item.quantity > 0 ? 'none' : '2px solid #CCC', background: item.quantity > 0 ? 'var(--color-primary)' : 'transparent', color: 'white', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {item.quantity > 0 ? '✓' : ''}
+                    </button>
+                    <div className="flex-1">
+                      <p className="text-sm">{item.name}</p>
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>${item.price}</p>
+                    </div>
+                    {item.quantity > 0 && (
+                      <div className="flex items-center gap-2">
+                        <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => updateItemQty(idx, item.quantity - 1)}>-</button>
+                        <span className="text-sm font-bold" style={{ minWidth: 20, textAlign: 'center' }}>{item.quantity}</span>
+                        <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => updateItemQty(idx, item.quantity + 1)}>+</button>
+                      </div>
+                    )}
                   </div>
                   {item.quantity > 0 && (
-                    <div className="flex items-center gap-2">
-                      <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => updateItemQty(idx, item.quantity - 1)}>-</button>
-                      <span className="text-sm font-bold" style={{ minWidth: 20, textAlign: 'center' }}>{item.quantity}</span>
-                      <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => updateItemQty(idx, item.quantity + 1)}>+</button>
-                    </div>
+                    <input
+                      className="input mt-2"
+                      type="text"
+                      placeholder="備註（加辣、不要香菜...）"
+                      value={item.note || ''}
+                      onChange={e => updateItemNote(idx, e.target.value)}
+                      style={{ fontSize: 12, padding: '4px 10px', marginLeft: 36 }}
+                    />
                   )}
                 </div>
               ))}
@@ -248,7 +268,7 @@ export default function AddPage() {
             {menuTotal > 0 && (
               <div className="card" style={{ background: '#FFF3E0' }}>
                 <p className="text-sm font-bold">小計: ${menuTotal.toLocaleString()}</p>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{pickedItems.map(i => `${i.name}x${i.quantity}`).join(', ')}</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{pickedItems.map(i => `${i.name}x${i.quantity}${i.note ? `(${i.note})` : ''}`).join(', ')}</p>
               </div>
             )}
           </>

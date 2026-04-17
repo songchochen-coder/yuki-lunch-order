@@ -10,7 +10,7 @@ import { getMembers, createOrder, saveMenu } from '@/lib/client-db';
 
 interface UserSelection {
   name: string;
-  items: { itemIdx: number; quantity: number }[];
+  items: { itemIdx: number; quantity: number; note?: string }[];
 }
 
 export default function ConfirmPage() {
@@ -109,6 +109,26 @@ export default function ConfirmPage() {
     });
   }
 
+  function setUserItemNote(userIdx: number, itemIdx: number, note: string) {
+    setSelections(prev => {
+      const updated = [...prev];
+      const sel = { ...updated[userIdx], items: [...updated[userIdx].items] };
+      const existingIdx = sel.items.findIndex(si => si.itemIdx === itemIdx);
+      if (existingIdx >= 0) {
+        sel.items[existingIdx] = { ...sel.items[existingIdx], note };
+      }
+      updated[userIdx] = sel;
+      return updated;
+    });
+  }
+
+  function getUserItemNote(userIdx: number, itemIdx: number): string {
+    const sel = selections[userIdx];
+    if (!sel) return '';
+    const found = sel.items.find(si => si.itemIdx === itemIdx);
+    return found?.note || '';
+  }
+
   function toggleUserItem(userIdx: number, itemIdx: number) {
     const current = getUserQty(userIdx, itemIdx);
     setUserQty(userIdx, itemIdx, current > 0 ? 0 : 1);
@@ -145,7 +165,7 @@ export default function ConfirmPage() {
       for (const sel of usersWithOrders) {
         const orderItems: OrderItem[] = sel.items.map(si => {
           const item = menuItems[si.itemIdx];
-          return { name: item.name, price: item.price, quantity: si.quantity };
+          return { name: item.name, price: item.price, quantity: si.quantity, note: si.note || undefined };
         });
         const userOriginal = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
         // For percent: apply directly; For amount: scale proportional to user's share
@@ -156,7 +176,7 @@ export default function ConfirmPage() {
           const userDiscount = Math.round((dValue * userOriginal) / grandTotalOriginal);
           userFinal = Math.max(0, userOriginal - userDiscount);
         }
-        const itemsText = orderItems.map(i => `${i.name}x${i.quantity}`).join(', ');
+        const itemsText = orderItems.map(i => `${i.name}x${i.quantity}${i.note ? `(${i.note})` : ''}`).join(', ');
 
         createOrder({
           restaurant: restaurant.trim(),
@@ -273,35 +293,46 @@ export default function ConfirmPage() {
             return (
               <div
                 key={idx}
-                className="flex items-center gap-3"
                 style={{
-                  padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                  padding: '10px 12px', borderRadius: 8,
                   background: selected ? '#FFF3E0' : 'var(--color-bg)',
                   border: selected ? '2px solid var(--color-primary)' : '1px solid #EEE',
                 }}
               >
-                <button
-                  onClick={() => toggleUserItem(activeUser, idx)}
-                  style={{
-                    width: 26, height: 26, borderRadius: 6, flexShrink: 0,
-                    border: selected ? 'none' : '2px solid #CCC',
-                    background: selected ? 'var(--color-primary)' : 'transparent',
-                    color: 'white', fontSize: 14, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  {selected ? '✓' : ''}
-                </button>
-                <div className="flex-1" onClick={() => toggleUserItem(activeUser, idx)}>
-                  <p className="text-sm font-semibold">{item.name}</p>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>${item.price}</p>
+                <div className="flex items-center gap-3" style={{ cursor: 'pointer' }}>
+                  <button
+                    onClick={() => toggleUserItem(activeUser, idx)}
+                    style={{
+                      width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                      border: selected ? 'none' : '2px solid #CCC',
+                      background: selected ? 'var(--color-primary)' : 'transparent',
+                      color: 'white', fontSize: 14, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    {selected ? '✓' : ''}
+                  </button>
+                  <div className="flex-1" onClick={() => toggleUserItem(activeUser, idx)}>
+                    <p className="text-sm font-semibold">{item.name}</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>${item.price}</p>
+                  </div>
+                  {selected && (
+                    <div className="flex items-center gap-2">
+                      <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => setUserQty(activeUser, idx, qty - 1)}>-</button>
+                      <span className="text-sm font-bold" style={{ minWidth: 20, textAlign: 'center' }}>{qty}</span>
+                      <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => setUserQty(activeUser, idx, qty + 1)}>+</button>
+                    </div>
+                  )}
                 </div>
                 {selected && (
-                  <div className="flex items-center gap-2">
-                    <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => setUserQty(activeUser, idx, qty - 1)}>-</button>
-                    <span className="text-sm font-bold" style={{ minWidth: 20, textAlign: 'center' }}>{qty}</span>
-                    <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 16 }} onClick={() => setUserQty(activeUser, idx, qty + 1)}>+</button>
-                  </div>
+                  <input
+                    className="input mt-2"
+                    type="text"
+                    placeholder="備註（加辣、不要香菜...）"
+                    value={getUserItemNote(activeUser, idx)}
+                    onChange={e => setUserItemNote(activeUser, idx, e.target.value)}
+                    style={{ fontSize: 12, padding: '4px 10px', marginLeft: 36 }}
+                  />
                 )}
               </div>
             );
@@ -325,7 +356,7 @@ export default function ConfirmPage() {
             const total = getUserTotal(userIdx);
             const itemNames = sel.items.map(si => {
               const item = menuItems[si.itemIdx];
-              return `${item?.name}x${si.quantity}`;
+              return `${item?.name}x${si.quantity}${si.note ? `(${si.note})` : ''}`;
             }).join(', ');
             return (
               <div key={i} className="flex justify-between text-xs mb-1">
