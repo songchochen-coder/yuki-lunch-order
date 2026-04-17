@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
-import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount } from '@/lib/types';
-import { getOrders, deleteOrder } from '@/lib/client-db';
+import { LunchOrder, MenuTemplate, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount } from '@/lib/types';
+import { getOrders, deleteOrder, getMenus } from '@/lib/client-db';
 
 type Tab = 'order' | 'overview';
 
 export default function StatsPage() {
   const [allOrders, setAllOrders] = useState<LunchOrder[]>([]);
+  const [menuList, setMenuList] = useState<MenuTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
 
@@ -38,6 +39,7 @@ export default function StatsPage() {
 
   useEffect(() => {
     setAllOrders(getOrders());
+    setMenuList(getMenus());
     setLoading(false);
   }, []);
 
@@ -211,6 +213,7 @@ export default function StatsPage() {
             <div className="flex flex-col gap-3">
               {restaurantEntries.map(([name, info]) => {
                 const itemList = Object.entries(info.itemTotals).sort((a, b) => b[1].quantity - a[1].quantity);
+                const menuPhone = menuList.find(m => m.restaurant === name)?.phone;
                 return (
                   <div key={name} className="card">
                     <div className="flex items-center justify-between mb-3 pb-2" style={{ borderBottom: '2px solid var(--color-primary)' }}>
@@ -219,6 +222,11 @@ export default function StatsPage() {
                         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                           {info.orderCount} 人訂餐
                         </p>
+                        {menuPhone && (
+                          <a href={`tel:${menuPhone}`} className="text-xs" style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                            📞 {menuPhone}
+                          </a>
+                        )}
                       </div>
                       <div className="text-right">
                         {info.originalTotalAmount !== info.totalAmount && (

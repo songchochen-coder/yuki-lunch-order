@@ -49,6 +49,7 @@ export interface Member {
 export interface MenuTemplate {
   id: string;
   restaurant: string;
+  phone?: string;
   items: OrderItem[];
   lastUsed: string;
   useCount: number;
@@ -73,6 +74,7 @@ export interface AppSettings {
 
 export interface AnalyzeResult {
   restaurant: string;
+  phone?: string;
   items: OrderItem[];
   totalAmount: number;
 }

@@ -17,6 +17,7 @@ export default function ConfirmPage() {
   const router = useRouter();
 
   const [restaurant, setRestaurant] = useState('');
+  const [phone, setPhone] = useState('');
   const [menuItems, setMenuItems] = useState<OrderItem[]>([]);
   const [date, setDate] = useState('');
   const [users, setUsers] = useState<string[]>([]);
@@ -50,6 +51,7 @@ export default function ConfirmPage() {
     try {
       const result: AnalyzeResult = JSON.parse(stored);
       setRestaurant(result.restaurant || '未知餐廳');
+      setPhone(result.phone || '');
       setMenuItems(result.items || []);
       setDate(new Date().toISOString().split('T')[0]);
       // Initialize empty selections for each user
@@ -159,7 +161,7 @@ export default function ConfirmPage() {
 
     try {
       // Save menu template
-      saveMenu({ restaurant: restaurant.trim(), items: menuItems });
+      saveMenu({ restaurant: restaurant.trim(), phone: phone.trim() || undefined, items: menuItems });
 
       // Create one order per user (apply discount proportionally)
       for (const sel of usersWithOrders) {
@@ -221,9 +223,9 @@ export default function ConfirmPage() {
         <h1 className="text-xl font-bold">團隊點餐</h1>
       </div>
 
-      {/* Restaurant & Date */}
+      {/* Restaurant & Date & Phone */}
       <div className="card mb-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-2">
           <div className="flex-1">
             <label className="input-label">餐廳</label>
             <input type="text" className="input" value={restaurant} onChange={e => setRestaurant(e.target.value)} />
@@ -232,6 +234,10 @@ export default function ConfirmPage() {
             <label className="input-label">日期</label>
             <input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} />
           </div>
+        </div>
+        <div>
+          <label className="input-label">電話</label>
+          <input type="tel" className="input" placeholder="店家電話（選填）" value={phone} onChange={e => setPhone(e.target.value)} />
         </div>
       </div>
 

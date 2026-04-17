@@ -175,11 +175,12 @@ export function getMenus(): MenuTemplate[] {
   return readStore<MenuTemplate[]>('lunch-menus', []);
 }
 
-export function saveMenu(menu: { restaurant: string; items: { name: string; price: number; quantity: number }[] }): MenuTemplate {
+export function saveMenu(menu: { restaurant: string; phone?: string; items: { name: string; price: number; quantity: number }[] }): MenuTemplate {
   const menus = getMenus();
   // If restaurant already exists, merge items instead of creating duplicate
   const existing = menus.find(m => m.restaurant === menu.restaurant);
   if (existing) {
+    if (menu.phone && !existing.phone) existing.phone = menu.phone;
     for (const item of menu.items) {
       const existingItem = existing.items.find(i => i.name === item.name);
       if (existingItem) {

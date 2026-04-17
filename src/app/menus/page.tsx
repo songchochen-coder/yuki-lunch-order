@@ -12,6 +12,7 @@ export default function MenusPage() {
   const [loading, setLoading] = useState(true);
   const [editingMenu, setEditingMenu] = useState<string | null>(null);
   const [editItems, setEditItems] = useState<OrderItem[]>([]);
+  const [editPhone, setEditPhone] = useState('');
   const [toast, setToast] = useState('');
 
   // Drag-to-reorder state
@@ -35,6 +36,7 @@ export default function MenusPage() {
   function startEdit(menu: MenuTemplate) {
     setEditingMenu(menu.id);
     setEditItems(menu.items.map(i => ({ ...i })));
+    setEditPhone(menu.phone || '');
   }
 
   function updateEditItem(idx: number, field: keyof OrderItem, value: string | number) {
@@ -106,7 +108,7 @@ export default function MenusPage() {
   }
 
   function saveEdit(menuId: string) {
-    const updated = dbUpdateMenu(menuId, { items: editItems.filter(i => i.name.trim()) });
+    const updated = dbUpdateMenu(menuId, { items: editItems.filter(i => i.name.trim()), phone: editPhone.trim() || undefined });
     if (updated) {
       setMenus(prev => prev.map(m => m.id === menuId ? updated : m));
       setEditingMenu(null);
@@ -169,9 +171,16 @@ export default function MenusPage() {
                 </div>
               </div>
 
-              <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
                 已點 {menu.useCount} 次 &middot; 最後使用 {menu.lastUsed}
               </p>
+              {menu.phone && editingMenu !== menu.id && (
+                <p className="text-xs mb-2">
+                  <a href={`tel:${menu.phone}`} style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                    📞 {menu.phone}
+                  </a>
+                </p>
+              )}
 
               {editingMenu === menu.id ? (
                 <div
@@ -179,6 +188,10 @@ export default function MenusPage() {
                   onTouchMove={handleDragTouchMove}
                   onTouchEnd={handleDragTouchEnd}
                 >
+                  <div className="mb-3">
+                    <label className="input-label">店家電話</label>
+                    <input type="tel" className="input" placeholder="電話號碼（選填）" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                  </div>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>長按 ≡ 拖曳排序</p>
                   {editItems.map((item, idx) => {
                     const isDragging = dragIdx === idx;
