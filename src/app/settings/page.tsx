@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -63,11 +64,13 @@ export default function SettingsPage() {
     if (!depositAmount || depositAmount <= 0) { showToast('請輸入金額'); return; }
 
     try {
-      dbDeposit(depositUser, typeof depositAmount === 'number' ? depositAmount : 0);
+      const amt = typeof depositAmount === 'number' ? depositAmount : 0;
+      dbDeposit(depositUser, amt, undefined, depositDate);
       setMembers(prev => prev.map(m =>
-        m.name === depositUser ? { ...m, balance: m.balance + (typeof depositAmount === 'number' ? depositAmount : 0) } : m
+        m.name === depositUser ? { ...m, balance: m.balance + amt } : m
       ));
-      showToast(`已為 ${depositUser} 儲值 $${depositAmount}`);
+      const dateLabel = depositDate ? ` (${depositDate.slice(5).replace('-', '/')})` : '';
+      showToast(`已為 ${depositUser} 儲值 $${depositAmount}${dateLabel}`);
       setDepositAmount('');
     } catch {
       showToast('儲值失敗');
@@ -124,17 +127,21 @@ export default function SettingsPage() {
                   {transactions.length === 0 ? (
                     <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>暫無紀錄</p>
                   ) : (
-                    transactions.slice().reverse().slice(0, 20).map(tx => (
-                      <div key={tx.id} className="flex justify-between text-xs py-1" style={{ borderBottom: '1px solid #F0F0F0' }}>
-                        <div>
-                          <span style={{ color: tx.type === 'deposit' ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                            {tx.type === 'deposit' ? '+' : '-'}${tx.amount}
-                          </span>
-                          <span className="ml-1" style={{ color: 'var(--color-text-muted)' }}>{tx.description}</span>
+                    transactions.slice().reverse().slice(0, 30).map(tx => {
+                      const [, mm, dd] = (tx.date || '').split('-');
+                      const dateLabel = mm && dd ? `${parseInt(mm)}/${parseInt(dd)}` : tx.date;
+                      return (
+                        <div key={tx.id} className="flex justify-between text-xs py-1" style={{ borderBottom: '1px solid #F0F0F0' }}>
+                          <div className="flex-1">
+                            <span className="font-semibold" style={{ color: tx.type === 'deposit' ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                              {tx.type === 'deposit' ? '+' : '-'}${tx.amount}
+                            </span>
+                            <span className="ml-1" style={{ color: 'var(--color-text-muted)' }}>{tx.description}</span>
+                          </div>
+                          <span className="ml-2 font-semibold" style={{ color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{dateLabel}</span>
                         </div>
-                        <span style={{ color: 'var(--color-text-muted)' }}>{tx.date}</span>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -204,6 +211,15 @@ export default function SettingsPage() {
               placeholder="自訂金額"
               value={depositAmount}
               onChange={e => setDepositAmount(e.target.value === '' ? '' : Number(e.target.value))}
+            />
+          </div>
+          <div>
+            <label className="input-label">儲值日期</label>
+            <input
+              className="input"
+              type="date"
+              value={depositDate}
+              onChange={e => setDepositDate(e.target.value)}
             />
           </div>
           <button className="btn btn-primary btn-block" onClick={handleDeposit} disabled={!depositUser || !depositAmount}>

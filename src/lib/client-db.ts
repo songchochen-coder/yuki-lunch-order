@@ -91,7 +91,7 @@ export function deleteMember(name: string): boolean {
   return true;
 }
 
-export function deposit(user: string, amount: number, description?: string): BalanceTransaction {
+export function deposit(user: string, amount: number, description?: string, depositDate?: string): BalanceTransaction {
   const members = getMembers();
   const member = members.find(m => m.name === user);
   if (!member) throw new Error(`Member "${user}" not found`);
@@ -99,13 +99,14 @@ export function deposit(user: string, amount: number, description?: string): Bal
   member.balance += amount;
   writeStore('lunch-members', members);
 
+  const date = depositDate || new Date().toISOString().split('T')[0];
   const tx: BalanceTransaction = {
     id: generateId(),
     user,
     type: 'deposit',
     amount,
     description: description || `儲值 $${amount}`,
-    date: new Date().toISOString().split('T')[0],
+    date,
     createdAt: new Date().toISOString(),
   };
   const txs = getTransactions();

@@ -1,15 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
+import SwipeToDelete from '@/components/SwipeToDelete';
 import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount } from '@/lib/types';
-import { getOrders } from '@/lib/client-db';
+import { getOrders, deleteOrder } from '@/lib/client-db';
 
 type Tab = 'order' | 'overview';
 
 export default function StatsPage() {
   const [allOrders, setAllOrders] = useState<LunchOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState('');
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2000);
+  }, []);
+
+  function handleDeleteOrder(id: string) {
+    const success = deleteOrder(id);
+    if (success) {
+      setAllOrders(prev => prev.filter(o => o.id !== id));
+      showToast('已刪除並退款');
+    } else {
+      showToast('刪除失敗');
+    }
+  }
   const [tab, setTab] = useState<Tab>('order');
   const [period, setPeriod] = useState<'week' | 'month'>('week');
   const today = new Date().toISOString().split('T')[0];
@@ -32,7 +49,7 @@ export default function StatsPage() {
     totalAmount: number;
     orderCount: number;
     itemTotals: Record<string, { quantity: number; price: number; totalAmount: number; users: string[] }>;
-    userItems: { user: string; items: string; amount: number; originalAmount?: number; discountType?: 'percent' | 'amount'; discountValue?: number }[];
+    userItems: { id: string; user: string; items: string; amount: number; originalAmount?: number; discountType?: 'percent' | 'amount'; discountValue?: number }[];
     originalTotalAmount: number;
   }> = {};
 
@@ -44,7 +61,7 @@ export default function StatsPage() {
     r.totalAmount += o.totalAmount;
     r.originalTotalAmount += o.originalAmount || o.totalAmount;
     r.orderCount += 1;
-    r.userItems.push({ user: o.user, items: o.itemsText, amount: o.totalAmount, originalAmount: o.originalAmount, discountType: o.discountType, discountValue: o.discountValue });
+    r.userItems.push({ id: o.id, user: o.user, items: o.itemsText, amount: o.totalAmount, originalAmount: o.originalAmount, discountType: o.discountType, discountValue: o.discountValue });
 
     // Aggregate individual items
     if (o.items && o.items.length > 0) {
@@ -245,27 +262,30 @@ export default function StatsPage() {
                       <p className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                         👥 各人明細（方便收款）
                       </p>
+                      <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>← 左滑可刪除</p>
                       <div className="flex flex-col gap-1">
                         {info.userItems.map((ui, i) => (
-                          <div key={i} className="flex items-center justify-between text-xs" style={{ padding: '4px 0' }}>
-                            <div className="flex-1">
-                              <span className="font-semibold">{ui.user}</span>
-                              <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>{ui.items}</span>
-                              {ui.discountType && (
-                                <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
-                                  {formatDiscount(ui.discountType, ui.discountValue)}
-                                </span>
-                              )}
+                          <SwipeToDelete key={ui.id || i} onDelete={() => handleDeleteOrder(ui.id)}>
+                            <div className="flex items-center justify-between text-xs" style={{ padding: '6px 10px', background: 'white', borderRadius: 6 }}>
+                              <div className="flex-1">
+                                <span className="font-semibold">{ui.user}</span>
+                                <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>{ui.items}</span>
+                                {ui.discountType && (
+                                  <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
+                                    {formatDiscount(ui.discountType, ui.discountValue)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                {ui.originalAmount && ui.originalAmount !== ui.amount && (
+                                  <span className="mr-2" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through', fontSize: 10 }}>
+                                    ${ui.originalAmount}
+                                  </span>
+                                )}
+                                <span className="font-semibold">${ui.amount}</span>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              {ui.originalAmount && ui.originalAmount !== ui.amount && (
-                                <span className="mr-2" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through', fontSize: 10 }}>
-                                  ${ui.originalAmount}
-                                </span>
-                              )}
-                              <span className="font-semibold">${ui.amount}</span>
-                            </div>
-                          </div>
+                          </SwipeToDelete>
                         ))}
                       </div>
                     </div>
@@ -390,6 +410,7 @@ export default function StatsPage() {
         </>
       )}
 
+      {toast && <div className="toast">{toast}</div>}
       <BottomNav />
     </div>
   );
