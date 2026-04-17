@@ -240,6 +240,62 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Data Management */}
+      <div className="card mb-4">
+        <p className="text-sm font-semibold mb-3">資料管理</p>
+        <div className="flex flex-col gap-2">
+          <button
+            className="btn btn-block"
+            style={{ background: '#FFF3E0', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
+            onClick={() => {
+              if (!confirm('確定要清空所有點餐紀錄嗎？\n（成員和儲值金不受影響）')) return;
+              localStorage.removeItem('lunch-orders');
+              showToast('已清空所有點餐紀錄');
+            }}
+          >
+            清空點餐紀錄
+          </button>
+          <button
+            className="btn btn-block"
+            style={{ background: '#FFF3E0', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
+            onClick={() => {
+              if (!confirm('確定要清空菜單庫嗎？')) return;
+              localStorage.removeItem('lunch-menus');
+              showToast('已清空菜單庫');
+            }}
+          >
+            清空菜單庫
+          </button>
+          <button
+            className="btn btn-block"
+            style={{ background: '#FFF3E0', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
+            onClick={() => {
+              if (!confirm('確定要清空儲值交易紀錄嗎？\n（餘額不受影響）')) return;
+              localStorage.removeItem('lunch-transactions');
+              showToast('已清空交易紀錄');
+            }}
+          >
+            清空交易紀錄
+          </button>
+          <button
+            className="btn btn-block"
+            style={{ background: '#FFF5F5', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', fontSize: 13, marginTop: 8 }}
+            onClick={() => {
+              if (!confirm('⚠️ 確定要清空所有資料嗎？\n\n包含：\n- 所有點餐紀錄\n- 菜單庫\n- 成員與儲值金\n- 交易紀錄\n\n此操作無法復原！')) return;
+              if (!confirm('再次確認：真的要全部清除嗎？')) return;
+              localStorage.removeItem('lunch-orders');
+              localStorage.removeItem('lunch-members');
+              localStorage.removeItem('lunch-menus');
+              localStorage.removeItem('lunch-transactions');
+              setMembers([]);
+              showToast('已清空所有資料');
+            }}
+          >
+            ⚠️ 清空全部資料
+          </button>
+        </div>
+      </div>
+
       {toast && <div className="toast">{toast}</div>}
       <BottomNav />
     </div>

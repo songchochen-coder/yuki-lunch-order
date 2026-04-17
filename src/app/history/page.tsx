@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
+import SwipeToDelete from '@/components/SwipeToDelete';
 import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount } from '@/lib/types';
 import { getOrdersByWeek, deleteOrder as dbDeleteOrder } from '@/lib/client-db';
 
@@ -31,13 +32,11 @@ export default function HistoryPage() {
 
   const weekTotal = orders.reduce((sum, o) => sum + o.totalAmount, 0);
 
-  // Group by user
   const userTotals: Record<string, number> = {};
   for (const o of orders) {
     userTotals[o.user] = (userTotals[o.user] || 0) + o.totalAmount;
   }
 
-  // Group by date
   const ordersByDate: Record<string, LunchOrder[]> = {};
   for (const o of orders) {
     if (!ordersByDate[o.date]) ordersByDate[o.date] = [];
@@ -45,7 +44,6 @@ export default function HistoryPage() {
   }
 
   function handleDelete(id: string) {
-    if (!confirm('確定要刪除這筆訂單嗎？（會自動退款）')) return;
     const success = dbDeleteOrder(id);
     if (success) {
       setOrders(prev => prev.filter(o => o.id !== id));
@@ -86,6 +84,11 @@ export default function HistoryPage() {
         )}
       </div>
 
+      {/* Swipe hint */}
+      {orders.length > 0 && (
+        <p className="text-xs mb-2 text-right" style={{ color: 'var(--color-text-muted)' }}>← 左滑可刪除</p>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-8">
           <div className="w-8 h-8 rounded-full border-4 border-[var(--color-primary)] border-t-transparent animate-spin" />
@@ -109,23 +112,23 @@ export default function HistoryPage() {
                 </div>
                 <div className="flex flex-col gap-2">
                   {dayOrders.map(order => (
-                    <div key={order.id} className="card flex items-center gap-3" style={{ padding: '10px var(--spacing-md)' }}>
-                      <span className="text-xl">🍱</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">
-                          {order.restaurant}
-                          {order.discountType && (
-                            <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
-                              {formatDiscount(order.discountType, order.discountValue)}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          {order.user} &middot; {order.itemsText}
-                        </p>
-                      </div>
-                      <div className="text-right flex items-center gap-2">
-                        <div>
+                    <SwipeToDelete key={order.id} onDelete={() => handleDelete(order.id)}>
+                      <div className="card flex items-center gap-3" style={{ padding: '10px var(--spacing-md)' }}>
+                        <span className="text-xl">🍱</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">
+                            {order.restaurant}
+                            {order.discountType && (
+                              <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
+                                {formatDiscount(order.discountType, order.discountValue)}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                            {order.user} &middot; {order.itemsText}
+                          </p>
+                        </div>
+                        <div className="text-right">
                           {order.originalAmount && order.originalAmount !== order.totalAmount && (
                             <p className="text-xs" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through' }}>
                               ${order.originalAmount}
@@ -133,15 +136,8 @@ export default function HistoryPage() {
                           )}
                           <p className="text-sm font-bold">${order.totalAmount.toLocaleString()}</p>
                         </div>
-                        <button
-                          onClick={() => handleDelete(order.id)}
-                          className="text-xs"
-                          style={{ color: 'var(--color-danger)', padding: '4px' }}
-                        >
-                          ✕
-                        </button>
                       </div>
-                    </div>
+                    </SwipeToDelete>
                   ))}
                 </div>
               </div>
