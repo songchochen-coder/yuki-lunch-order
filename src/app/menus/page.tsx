@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { MenuTemplate, OrderItem } from '@/lib/types';
@@ -13,6 +13,13 @@ export default function MenusPage() {
   const [editingMenu, setEditingMenu] = useState<string | null>(null);
   const [editItems, setEditItems] = useState<OrderItem[]>([]);
   const [toast, setToast] = useState('');
+
+  // Drag-to-reorder state
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragStartY = useRef(0);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -42,14 +49,56 @@ export default function MenusPage() {
     setEditItems(prev => prev.filter((_, i) => i !== idx));
   }
 
-  function moveEditItem(idx: number, direction: -1 | 1) {
-    setEditItems(prev => {
-      const target = idx + direction;
-      if (target < 0 || target >= prev.length) return prev;
-      const updated = [...prev];
-      [updated[idx], updated[target]] = [updated[target], updated[idx]];
-      return updated;
-    });
+  function handleDragTouchStart(idx: number, e: React.TouchEvent) {
+    const y = e.touches[0].clientY;
+    dragStartY.current = y;
+    longPressTimer.current = setTimeout(() => {
+      setDragIdx(idx);
+      setDragOverIdx(idx);
+      // Haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 400);
+  }
+
+  function handleDragTouchMove(e: React.TouchEvent) {
+    if (dragIdx === null) {
+      // Cancel long press if finger moved too much before activation
+      const dy = Math.abs(e.touches[0].clientY - dragStartY.current);
+      if (dy > 10 && longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+      return;
+    }
+    e.preventDefault();
+    const y = e.touches[0].clientY;
+    // Find which item the finger is over
+    for (let i = 0; i < itemRefs.current.length; i++) {
+      const el = itemRefs.current[i];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (y >= rect.top && y <= rect.bottom) {
+        setDragOverIdx(i);
+        break;
+      }
+    }
+  }
+
+  function handleDragTouchEnd() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+      setEditItems(prev => {
+        const updated = [...prev];
+        const [moved] = updated.splice(dragIdx, 1);
+        updated.splice(dragOverIdx, 0, moved);
+        return updated;
+      });
+    }
+    setDragIdx(null);
+    setDragOverIdx(null);
   }
 
   function addEditItem() {
@@ -125,26 +174,49 @@ export default function MenusPage() {
               </p>
 
               {editingMenu === menu.id ? (
-                <div className="flex flex-col gap-2">
-                  {editItems.map((item, idx) => (
-                    <div key={idx} className="flex gap-1 items-center" style={{ background: 'var(--color-bg)', borderRadius: 8, padding: '6px 8px' }}>
-                      <div className="flex flex-col" style={{ marginRight: 4 }}>
-                        <button
-                          onClick={() => moveEditItem(idx, -1)}
-                          disabled={idx === 0}
-                          style={{ fontSize: 14, lineHeight: 1, padding: '0 2px', color: idx === 0 ? '#DDD' : 'var(--color-primary)', background: 'none', border: 'none', cursor: idx === 0 ? 'default' : 'pointer' }}
-                        >▲</button>
-                        <button
-                          onClick={() => moveEditItem(idx, 1)}
-                          disabled={idx === editItems.length - 1}
-                          style={{ fontSize: 14, lineHeight: 1, padding: '0 2px', color: idx === editItems.length - 1 ? '#DDD' : 'var(--color-primary)', background: 'none', border: 'none', cursor: idx === editItems.length - 1 ? 'default' : 'pointer' }}
-                        >▼</button>
+                <div
+                  className="flex flex-col gap-2"
+                  onTouchMove={handleDragTouchMove}
+                  onTouchEnd={handleDragTouchEnd}
+                >
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>長按 ≡ 拖曳排序</p>
+                  {editItems.map((item, idx) => {
+                    const isDragging = dragIdx === idx;
+                    const isDragOver = dragOverIdx === idx && dragIdx !== null && dragIdx !== idx;
+                    return (
+                      <div
+                        key={idx}
+                        ref={el => { itemRefs.current[idx] = el; }}
+                        className="flex gap-2 items-center"
+                        style={{
+                          background: isDragging ? '#FFE0B2' : isDragOver ? '#FFF3E0' : 'var(--color-bg)',
+                          borderRadius: 8,
+                          padding: '8px 8px',
+                          opacity: isDragging ? 0.7 : 1,
+                          borderTop: isDragOver ? '3px solid var(--color-primary)' : '3px solid transparent',
+                          transition: 'background 0.15s, border 0.15s',
+                        }}
+                      >
+                        <span
+                          onTouchStart={e => handleDragTouchStart(idx, e)}
+                          style={{
+                            fontSize: 18,
+                            color: 'var(--color-text-muted)',
+                            cursor: 'grab',
+                            touchAction: 'none',
+                            userSelect: 'none',
+                            padding: '4px 4px',
+                            lineHeight: 1,
+                          }}
+                        >
+                          ≡
+                        </span>
+                        <input className="input flex-1 text-sm" value={item.name} onChange={e => updateEditItem(idx, 'name', e.target.value)} placeholder="品項名稱" />
+                        <input className="input text-sm" style={{ width: 70 }} type="number" value={item.price || ''} onChange={e => updateEditItem(idx, 'price', Number(e.target.value))} placeholder="$" />
+                        <button style={{ color: 'var(--color-danger)', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }} onClick={() => removeEditItem(idx)}>✕</button>
                       </div>
-                      <input className="input flex-1 text-sm" value={item.name} onChange={e => updateEditItem(idx, 'name', e.target.value)} placeholder="品項名稱" />
-                      <input className="input text-sm" style={{ width: 70 }} type="number" value={item.price || ''} onChange={e => updateEditItem(idx, 'price', Number(e.target.value))} placeholder="$" />
-                      <button style={{ color: 'var(--color-danger)', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }} onClick={() => removeEditItem(idx)}>✕</button>
-                    </div>
-                  ))}
+                    );
+                  })}
                   <button className="btn btn-ghost text-xs" style={{ color: 'var(--color-primary)' }} onClick={addEditItem}>+ 新增品項</button>
                 </div>
               ) : (
