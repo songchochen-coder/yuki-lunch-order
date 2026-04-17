@@ -213,7 +213,9 @@ export default function StatsPage() {
             <div className="flex flex-col gap-3">
               {restaurantEntries.map(([name, info]) => {
                 const itemList = Object.entries(info.itemTotals).sort((a, b) => b[1].quantity - a[1].quantity);
-                const menuPhone = menuList.find(m => m.restaurant === name)?.phone;
+                const menuEntry = menuList.find(m => m.restaurant === name);
+                const menuPhone = menuEntry?.phone;
+                const menuClosedDays = menuEntry?.closedDays;
                 return (
                   <div key={name} className="card">
                     <div className="flex items-center justify-between mb-3 pb-2" style={{ borderBottom: '2px solid var(--color-primary)' }}>
@@ -222,11 +224,16 @@ export default function StatsPage() {
                         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                           {info.orderCount} 人訂餐
                         </p>
-                        {menuPhone && (
-                          <a href={`tel:${menuPhone}`} className="text-xs" style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
-                            📞 {menuPhone}
-                          </a>
-                        )}
+                        <div className="flex flex-wrap gap-3">
+                          {menuPhone && (
+                            <a href={`tel:${menuPhone}`} className="text-xs" style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                              📞 {menuPhone}
+                            </a>
+                          )}
+                          {menuClosedDays && (
+                            <span className="text-xs" style={{ color: 'var(--color-danger)' }}>🚫 休 {menuClosedDays}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="text-right">
                         {info.originalTotalAmount !== info.totalAmount && (

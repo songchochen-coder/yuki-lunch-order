@@ -13,6 +13,7 @@ export default function MenusPage() {
   const [editingMenu, setEditingMenu] = useState<string | null>(null);
   const [editItems, setEditItems] = useState<OrderItem[]>([]);
   const [editPhone, setEditPhone] = useState('');
+  const [editClosedDays, setEditClosedDays] = useState('');
   const [toast, setToast] = useState('');
 
   // Drag-to-reorder state
@@ -37,6 +38,7 @@ export default function MenusPage() {
     setEditingMenu(menu.id);
     setEditItems(menu.items.map(i => ({ ...i })));
     setEditPhone(menu.phone || '');
+    setEditClosedDays(menu.closedDays || '');
   }
 
   function updateEditItem(idx: number, field: keyof OrderItem, value: string | number) {
@@ -108,7 +110,7 @@ export default function MenusPage() {
   }
 
   function saveEdit(menuId: string) {
-    const updated = dbUpdateMenu(menuId, { items: editItems.filter(i => i.name.trim()), phone: editPhone.trim() || undefined });
+    const updated = dbUpdateMenu(menuId, { items: editItems.filter(i => i.name.trim()), phone: editPhone.trim() || undefined, closedDays: editClosedDays.trim() || undefined });
     if (updated) {
       setMenus(prev => prev.map(m => m.id === menuId ? updated : m));
       setEditingMenu(null);
@@ -174,12 +176,17 @@ export default function MenusPage() {
               <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
                 已點 {menu.useCount} 次 &middot; 最後使用 {menu.lastUsed}
               </p>
-              {menu.phone && editingMenu !== menu.id && (
-                <p className="text-xs mb-2">
-                  <a href={`tel:${menu.phone}`} style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
-                    📞 {menu.phone}
-                  </a>
-                </p>
+              {editingMenu !== menu.id && (menu.phone || menu.closedDays) && (
+                <div className="text-xs mb-2 flex flex-wrap gap-3">
+                  {menu.phone && (
+                    <a href={`tel:${menu.phone}`} style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                      📞 {menu.phone}
+                    </a>
+                  )}
+                  {menu.closedDays && (
+                    <span style={{ color: 'var(--color-danger)' }}>🚫 休 {menu.closedDays}</span>
+                  )}
+                </div>
               )}
 
               {editingMenu === menu.id ? (
@@ -188,9 +195,13 @@ export default function MenusPage() {
                   onTouchMove={handleDragTouchMove}
                   onTouchEnd={handleDragTouchEnd}
                 >
-                  <div className="mb-3">
+                  <div className="mb-2">
                     <label className="input-label">店家電話</label>
                     <input type="tel" className="input" placeholder="電話號碼（選填）" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                  </div>
+                  <div className="mb-3">
+                    <label className="input-label">公休日</label>
+                    <input type="text" className="input" placeholder="例：週日、每月第一個週一" value={editClosedDays} onChange={e => setEditClosedDays(e.target.value)} />
                   </div>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>長按 ≡ 拖曳排序</p>
                   {editItems.map((item, idx) => {

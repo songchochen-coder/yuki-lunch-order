@@ -50,6 +50,7 @@ export interface MenuTemplate {
   id: string;
   restaurant: string;
   phone?: string;
+  closedDays?: string; // e.g. "週日", "週六、週日", "每月第二個週一"
   items: OrderItem[];
   lastUsed: string;
   useCount: number;
