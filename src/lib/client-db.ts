@@ -117,6 +117,29 @@ export function getUnpaidOrders(user?: string): LunchOrder[] {
   return getOrders().filter(o => getPaymentMethod(o) === 'unpaid' && (!user || o.user === user));
 }
 
+// Reverse a balance-paid order back to unpaid state. Used to retroactively fix
+// orders that were placed before the auto-unpaid logic existed (e.g. today's
+// orders that deducted balance into the negative). Refunds the amount to the
+// member's balance and marks the order as unpaid so it can be collected as cash.
+export function markOrderUnpaid(id: string): LunchOrder | null {
+  const orders = getOrders();
+  const idx = orders.findIndex(o => o.id === id);
+  if (idx === -1) return null;
+  const order = orders[idx];
+  if (getPaymentMethod(order) !== 'balance') return null;
+
+  const updated: LunchOrder = {
+    ...order,
+    paymentMethod: 'unpaid',
+    paidAt: undefined,
+  };
+  orders[idx] = updated;
+  writeStore('lunch-orders', orders);
+
+  refundBalance(order.user, order.totalAmount, order.id, `改為未付款 - ${order.restaurant}`);
+  return updated;
+}
+
 // Collect cash for ALL of a user's unpaid orders in one shot. Matches the real
 // habit of settling a person's whole tab at once instead of order-by-order.
 export function collectAllForUser(user: string, paidDate?: string): { count: number; total: number } {

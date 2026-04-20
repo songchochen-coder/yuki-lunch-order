@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
 import { LunchOrder, MenuTemplate, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod } from '@/lib/types';
-import { getOrders, deleteOrder, getMenus, applyGroupDiscount, markOrderPaid as dbMarkOrderPaid, setOrderAmount as dbSetOrderAmount } from '@/lib/client-db';
+import { getOrders, deleteOrder, getMenus, applyGroupDiscount, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, setOrderAmount as dbSetOrderAmount } from '@/lib/client-db';
 
 type Tab = 'order' | 'overview';
 
@@ -41,6 +41,19 @@ export default function StatsPage() {
       showToast(`已收款 $${order.totalAmount.toLocaleString()}`);
     } else {
       showToast('收款失敗');
+    }
+  }
+
+  function handleMarkUnpaid(id: string) {
+    const order = allOrders.find(o => o.id === id);
+    if (!order) return;
+    if (!confirm(`把這筆改為未付款？\n$${order.totalAmount.toLocaleString()} 會退回 ${order.user} 的儲值金，並進入待收現金。`)) return;
+    const updated = dbMarkOrderUnpaid(id);
+    if (updated) {
+      setAllOrders(prev => prev.map(o => (o.id === id ? updated : o)));
+      showToast('已改為未付款，儲值金已退回');
+    } else {
+      showToast('操作失敗');
     }
   }
 
@@ -424,6 +437,7 @@ export default function StatsPage() {
                         {info.userItems.map((ui, i) => {
                           const isUnpaid = ui.paymentMethod === 'unpaid';
                           const isCash = ui.paymentMethod === 'cash';
+                          const isBalance = ui.paymentMethod === 'balance';
                           const isEditingAmount = amountEditing === ui.id;
                           // Manually overridden: has originalAmount set but no discountType
                           const isManual = !!ui.originalAmount && !ui.discountType;
@@ -479,6 +493,17 @@ export default function StatsPage() {
                                           background: 'var(--color-warning)', color: 'white', border: 'none',
                                         }}
                                       >收款</button>
+                                    )}
+                                    {isBalance && (
+                                      <button
+                                        className="btn"
+                                        onClick={(e) => { e.stopPropagation(); handleMarkUnpaid(ui.id); }}
+                                        style={{
+                                          fontSize: 11, padding: '2px 6px',
+                                          background: 'transparent', color: 'var(--color-warning)', border: '1px solid var(--color-warning)',
+                                        }}
+                                        title="改為未付款（退回儲值金，之後收現金）"
+                                      >↩ 未付</button>
                                     )}
                                   </div>
                                 </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
 import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod } from '@/lib/types';
-import { getOrdersByWeek, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid } from '@/lib/client-db';
+import { getOrdersByWeek, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid } from '@/lib/client-db';
 
 export default function HistoryPage() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
@@ -66,6 +66,19 @@ export default function HistoryPage() {
       showToast(`已收款 $${order.totalAmount.toLocaleString()}`);
     } else {
       showToast('收款失敗');
+    }
+  }
+
+  function handleMarkUnpaid(id: string) {
+    const order = orders.find(o => o.id === id);
+    if (!order) return;
+    if (!confirm(`把這筆改為未付款？\n$${order.totalAmount.toLocaleString()} 會退回 ${order.user} 的儲值金，並進入待收現金。`)) return;
+    const updated = dbMarkOrderUnpaid(id);
+    if (updated) {
+      setOrders(prev => prev.map(o => (o.id === id ? updated : o)));
+      showToast('已改為未付款');
+    } else {
+      showToast('操作失敗');
     }
   }
 
@@ -181,6 +194,18 @@ export default function HistoryPage() {
                                   background: 'var(--color-warning)', color: 'white', border: 'none',
                                 }}
                               >收款</button>
+                            )}
+                            {method === 'balance' && (
+                              <button
+                                className="btn"
+                                onClick={(e) => { e.stopPropagation(); handleMarkUnpaid(order.id); }}
+                                style={{
+                                  fontSize: 11, padding: '3px 8px',
+                                  background: 'transparent', color: 'var(--color-warning)',
+                                  border: '1px solid var(--color-warning)',
+                                }}
+                                title="改為未付款（退回儲值金，之後收現金）"
+                              >↩ 未付</button>
                             )}
                           </div>
                         </div>
