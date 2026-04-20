@@ -130,11 +130,19 @@ export default function SettingsPage() {
                     transactions.slice().reverse().slice(0, 30).map(tx => {
                       const [, mm, dd] = (tx.date || '').split('-');
                       const dateLabel = mm && dd ? `${parseInt(mm)}/${parseInt(dd)}` : tx.date;
+                      // Cash receipts don't change balance; show them neutral with a 💵 marker.
+                      const isCash = tx.type === 'cash';
+                      const sign = tx.type === 'deposit' ? '+' : tx.type === 'deduct' ? '-' : '💵';
+                      const color = tx.type === 'deposit'
+                        ? 'var(--color-success)'
+                        : tx.type === 'deduct'
+                        ? 'var(--color-danger)'
+                        : 'var(--color-warning)';
                       return (
                         <div key={tx.id} className="flex justify-between text-xs py-1" style={{ borderBottom: '1px solid #F0F0F0' }}>
                           <div className="flex-1">
-                            <span className="font-semibold" style={{ color: tx.type === 'deposit' ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                              {tx.type === 'deposit' ? '+' : '-'}${tx.amount}
+                            <span className="font-semibold" style={{ color }}>
+                              {sign}{isCash ? ' ' : ''}${tx.amount}
                             </span>
                             <span className="ml-1" style={{ color: 'var(--color-text-muted)' }}>{tx.description}</span>
                           </div>

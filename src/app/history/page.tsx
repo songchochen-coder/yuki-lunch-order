@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
-import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount } from '@/lib/types';
-import { getOrdersByWeek, deleteOrder as dbDeleteOrder } from '@/lib/client-db';
+import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod } from '@/lib/types';
+import { getOrdersByWeek, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid } from '@/lib/client-db';
 
 export default function HistoryPage() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
@@ -31,6 +31,7 @@ export default function HistoryPage() {
   }, [weekStart]);
 
   const weekTotal = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const weekUnpaid = orders.filter(o => getPaymentMethod(o) === 'unpaid').reduce((s, o) => s + o.totalAmount, 0);
 
   const userTotals: Record<string, number> = {};
   for (const o of orders) {
@@ -44,12 +45,27 @@ export default function HistoryPage() {
   }
 
   function handleDelete(id: string) {
+    const order = orders.find(o => o.id === id);
     const success = dbDeleteOrder(id);
     if (success) {
       setOrders(prev => prev.filter(o => o.id !== id));
-      showToast('已刪除並退款');
+      const wasBalance = order && getPaymentMethod(order) === 'balance';
+      showToast(wasBalance ? '已刪除並退款' : '已刪除');
     } else {
       showToast('刪除失敗');
+    }
+  }
+
+  function handleCollect(id: string) {
+    const order = orders.find(o => o.id === id);
+    if (!order) return;
+    if (!confirm(`確認向 ${order.user} 收取現金 $${order.totalAmount.toLocaleString()}？`)) return;
+    const updated = dbMarkOrderPaid(id);
+    if (updated) {
+      setOrders(prev => prev.map(o => (o.id === id ? updated : o)));
+      showToast(`已收款 $${order.totalAmount.toLocaleString()}`);
+    } else {
+      showToast('收款失敗');
     }
   }
 
@@ -82,6 +98,13 @@ export default function HistoryPage() {
             ))}
           </div>
         )}
+        {weekUnpaid > 0 && (
+          <div className="mt-2 pt-2" style={{ borderTop: '1px solid #F0F0F0' }}>
+            <span className="text-xs" style={{ color: 'var(--color-warning)', fontWeight: 600 }}>
+              ⏳ 本週待收現金：${weekUnpaid.toLocaleString()}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Swipe hint */}
@@ -111,34 +134,59 @@ export default function HistoryPage() {
                   <p className="text-sm font-bold">${dayTotal.toLocaleString()}</p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {dayOrders.map(order => (
-                    <SwipeToDelete key={order.id} onDelete={() => handleDelete(order.id)}>
-                      <div className="card flex items-center gap-3" style={{ padding: '10px var(--spacing-md)' }}>
-                        <span className="text-xl">🍱</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">
-                            {order.restaurant}
-                            {order.discountType && (
-                              <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
-                                {formatDiscount(order.discountType, order.discountValue)}
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            {order.user} &middot; {order.itemsText}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          {order.originalAmount && order.originalAmount !== order.totalAmount && (
-                            <p className="text-xs" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through' }}>
-                              ${order.originalAmount}
+                  {dayOrders.map(order => {
+                    const method = getPaymentMethod(order);
+                    const badge = method === 'unpaid'
+                      ? { label: '⏳ 未付款', bg: 'var(--color-warning)' }
+                      : method === 'cash'
+                      ? { label: '💵 現金', bg: 'var(--color-success)' }
+                      : null; // 'balance' → no badge (default, keep cards clean)
+                    return (
+                      <SwipeToDelete key={order.id} onDelete={() => handleDelete(order.id)}>
+                        <div className="card flex items-center gap-3" style={{ padding: '10px var(--spacing-md)' }}>
+                          <span className="text-xl">🍱</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">
+                              {order.restaurant}
+                              {order.discountType && (
+                                <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
+                                  {formatDiscount(order.discountType, order.discountValue)}
+                                </span>
+                              )}
+                              {badge && (
+                                <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', borderRadius: 999, background: badge.bg, color: 'white', fontWeight: 600 }}>
+                                  {badge.label}
+                                </span>
+                              )}
                             </p>
-                          )}
-                          <p className="text-sm font-bold">${order.totalAmount.toLocaleString()}</p>
+                            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                              {order.user} &middot; {order.itemsText}
+                            </p>
+                          </div>
+                          <div className="text-right flex items-center gap-2">
+                            <div>
+                              {order.originalAmount && order.originalAmount !== order.totalAmount && (
+                                <p className="text-xs" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through' }}>
+                                  ${order.originalAmount}
+                                </p>
+                              )}
+                              <p className="text-sm font-bold">${order.totalAmount.toLocaleString()}</p>
+                            </div>
+                            {method === 'unpaid' && (
+                              <button
+                                className="btn"
+                                onClick={(e) => { e.stopPropagation(); handleCollect(order.id); }}
+                                style={{
+                                  fontSize: 12, padding: '4px 10px',
+                                  background: 'var(--color-warning)', color: 'white', border: 'none',
+                                }}
+                              >收款</button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </SwipeToDelete>
-                  ))}
+                      </SwipeToDelete>
+                    );
+                  })}
                 </div>
               </div>
             );

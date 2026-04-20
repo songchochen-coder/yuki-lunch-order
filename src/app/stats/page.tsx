@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
-import { LunchOrder, MenuTemplate, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount } from '@/lib/types';
-import { getOrders, deleteOrder, getMenus } from '@/lib/client-db';
+import { LunchOrder, MenuTemplate, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod } from '@/lib/types';
+import { getOrders, deleteOrder, getMenus, applyGroupDiscount, markOrderPaid as dbMarkOrderPaid, setOrderAmount as dbSetOrderAmount } from '@/lib/client-db';
 
 type Tab = 'order' | 'overview';
 
@@ -20,13 +20,83 @@ export default function StatsPage() {
   }, []);
 
   function handleDeleteOrder(id: string) {
+    const existing = allOrders.find(o => o.id === id);
+    const wasBalance = existing && getPaymentMethod(existing) === 'balance';
     const success = deleteOrder(id);
     if (success) {
       setAllOrders(prev => prev.filter(o => o.id !== id));
-      showToast('已刪除並退款');
+      showToast(wasBalance ? '已刪除並退款' : '已刪除');
     } else {
       showToast('刪除失敗');
     }
+  }
+
+  function handleCollectOrder(id: string) {
+    const order = allOrders.find(o => o.id === id);
+    if (!order) return;
+    if (!confirm(`確認向 ${order.user} 收取現金 $${order.totalAmount.toLocaleString()}？`)) return;
+    const updated = dbMarkOrderPaid(id);
+    if (updated) {
+      setAllOrders(prev => prev.map(o => (o.id === id ? updated : o)));
+      showToast(`已收款 $${order.totalAmount.toLocaleString()}`);
+    } else {
+      showToast('收款失敗');
+    }
+  }
+
+  // Inline discount UI state: which restaurant group is currently being edited
+  const [discountEditing, setDiscountEditing] = useState<string | null>(null); // restaurant name
+  const [discountType, setDiscountType] = useState<'percent' | 'amount'>('percent');
+  const [discountValue, setDiscountValue] = useState<number | ''>('');
+
+  function openDiscount(restaurant: string, existingType?: 'percent' | 'amount', existingValue?: number) {
+    setDiscountEditing(restaurant);
+    setDiscountType(existingType || 'percent');
+    setDiscountValue(existingValue || '');
+  }
+  function closeDiscount() {
+    setDiscountEditing(null);
+    setDiscountValue('');
+  }
+  function applyDiscountGroup(restaurant: string) {
+    const value = typeof discountValue === 'number' ? discountValue : 0;
+    if (value <= 0) { showToast('請輸入折扣數字'); return; }
+    const { affected } = applyGroupDiscount(restaurant, selectedDate, discountType, value);
+    setAllOrders(getOrders());
+    showToast(`已套用折扣到 ${affected} 筆訂單`);
+    closeDiscount();
+  }
+  function clearDiscountGroup(restaurant: string) {
+    if (!confirm(`確定要清除「${restaurant}」當日折扣？`)) return;
+    const { affected } = applyGroupDiscount(restaurant, selectedDate, 'none', 0);
+    setAllOrders(getOrders());
+    showToast(`已清除 ${affected} 筆訂單的折扣`);
+    closeDiscount();
+  }
+
+  // Per-order manual amount override — for exceptions like "drinks don't count"
+  const [amountEditing, setAmountEditing] = useState<string | null>(null); // order id
+  const [amountValue, setAmountValue] = useState<number | ''>('');
+
+  function openAmountEdit(orderId: string, currentAmount: number) {
+    setAmountEditing(orderId);
+    setAmountValue(currentAmount);
+  }
+  function closeAmountEdit() {
+    setAmountEditing(null);
+    setAmountValue('');
+  }
+  function saveAmountEdit(orderId: string) {
+    const value = typeof amountValue === 'number' ? amountValue : -1;
+    if (value < 0) { showToast('請輸入正確金額'); return; }
+    const updated = dbSetOrderAmount(orderId, value);
+    if (updated) {
+      setAllOrders(getOrders());
+      showToast(`已更新金額為 $${value.toLocaleString()}`);
+    } else {
+      showToast('更新失敗');
+    }
+    closeAmountEdit();
   }
   const [tab, setTab] = useState<Tab>('order');
   const [period, setPeriod] = useState<'week' | 'month'>('week');
@@ -51,7 +121,7 @@ export default function StatsPage() {
     totalAmount: number;
     orderCount: number;
     itemTotals: Record<string, { quantity: number; price: number; totalAmount: number; users: string[] }>;
-    userItems: { id: string; user: string; items: string; amount: number; originalAmount?: number; discountType?: 'percent' | 'amount'; discountValue?: number }[];
+    userItems: { id: string; user: string; items: string; amount: number; originalAmount?: number; discountType?: 'percent' | 'amount'; discountValue?: number; paymentMethod: 'balance' | 'cash' | 'unpaid' }[];
     originalTotalAmount: number;
   }> = {};
 
@@ -63,7 +133,7 @@ export default function StatsPage() {
     r.totalAmount += o.totalAmount;
     r.originalTotalAmount += o.originalAmount || o.totalAmount;
     r.orderCount += 1;
-    r.userItems.push({ id: o.id, user: o.user, items: o.itemsText, amount: o.totalAmount, originalAmount: o.originalAmount, discountType: o.discountType, discountValue: o.discountValue });
+    r.userItems.push({ id: o.id, user: o.user, items: o.itemsText, amount: o.totalAmount, originalAmount: o.originalAmount, discountType: o.discountType, discountValue: o.discountValue, paymentMethod: getPaymentMethod(o) });
 
     // Aggregate individual items
     if (o.items && o.items.length > 0) {
@@ -216,6 +286,9 @@ export default function StatsPage() {
                 const menuEntry = menuList.find(m => m.restaurant === name);
                 const menuPhone = menuEntry?.phone;
                 const menuClosedDays = menuEntry?.closedDays;
+                // Group discount = any order in group that already has one (we apply uniformly).
+                const existingDiscount = info.userItems.find(u => u.discountType);
+                const isEditingDiscount = discountEditing === name;
                 return (
                   <div key={name} className="card">
                     <div className="flex items-center justify-between mb-3 pb-2" style={{ borderBottom: '2px solid var(--color-primary)' }}>
@@ -244,8 +317,77 @@ export default function StatsPage() {
                         <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
                           ${info.totalAmount.toLocaleString()}
                         </p>
+                        <button
+                          className="btn btn-ghost"
+                          onClick={() => isEditingDiscount ? closeDiscount() : openDiscount(name, existingDiscount?.discountType, existingDiscount?.discountValue)}
+                          style={{ fontSize: 11, padding: '2px 8px', marginTop: 4 }}
+                        >
+                          {existingDiscount
+                            ? `${formatDiscount(existingDiscount.discountType, existingDiscount.discountValue)} ✎`
+                            : '＋ 套用折扣'}
+                        </button>
                       </div>
                     </div>
+
+                    {/* Inline group-discount editor */}
+                    {isEditingDiscount && (
+                      <div className="mb-3 p-3" style={{ background: 'var(--color-bg)', borderRadius: 8 }}>
+                        <p className="text-xs font-semibold mb-1">🏷️ 整組折扣（套到 {info.orderCount} 筆訂單）</p>
+                        <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                          套完後若有不折扣品項，可用下方各人旁邊的「✎」單獨改金額
+                        </p>
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            className="btn flex-1"
+                            onClick={() => setDiscountType('percent')}
+                            style={{
+                              fontSize: 12, padding: '6px 4px',
+                              background: discountType === 'percent' ? 'var(--color-primary)' : 'white',
+                              color: discountType === 'percent' ? 'white' : 'var(--color-text)',
+                              border: discountType === 'percent' ? 'none' : '1px solid #E0E0E0',
+                            }}
+                          >打 X 折</button>
+                          <button
+                            className="btn flex-1"
+                            onClick={() => setDiscountType('amount')}
+                            style={{
+                              fontSize: 12, padding: '6px 4px',
+                              background: discountType === 'amount' ? 'var(--color-primary)' : 'white',
+                              color: discountType === 'amount' ? 'white' : 'var(--color-text)',
+                              border: discountType === 'amount' ? 'none' : '1px solid #E0E0E0',
+                            }}
+                          >每人折 $X</button>
+                        </div>
+                        <input
+                          className="input mb-2"
+                          type="number"
+                          inputMode="decimal"
+                          placeholder={discountType === 'percent' ? '例：9 (9 折)' : '例：20 (每人折 $20)'}
+                          value={discountValue}
+                          onChange={e => setDiscountValue(e.target.value === '' ? '' : Number(e.target.value))}
+                          style={{ fontSize: 14 }}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            className="btn btn-primary flex-1"
+                            onClick={() => applyDiscountGroup(name)}
+                            style={{ fontSize: 13, padding: '8px' }}
+                          >套用</button>
+                          {existingDiscount && (
+                            <button
+                              className="btn flex-1"
+                              onClick={() => clearDiscountGroup(name)}
+                              style={{ fontSize: 13, padding: '8px', background: '#FFF5F5', color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}
+                            >清除折扣</button>
+                          )}
+                          <button
+                            className="btn flex-1"
+                            onClick={closeDiscount}
+                            style={{ fontSize: 13, padding: '8px' }}
+                          >取消</button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Aggregated items (for calling the restaurant) */}
                     {itemList.length > 0 && (
@@ -279,29 +421,95 @@ export default function StatsPage() {
                       </p>
                       <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>← 左滑可刪除</p>
                       <div className="flex flex-col gap-1">
-                        {info.userItems.map((ui, i) => (
-                          <SwipeToDelete key={ui.id || i} onDelete={() => handleDeleteOrder(ui.id)}>
-                            <div className="flex items-center justify-between text-xs" style={{ padding: '6px 10px', background: 'white', borderRadius: 6 }}>
-                              <div className="flex-1">
-                                <span className="font-semibold">{ui.user}</span>
-                                <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>{ui.items}</span>
-                                {ui.discountType && (
-                                  <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
-                                    {formatDiscount(ui.discountType, ui.discountValue)}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                {ui.originalAmount && ui.originalAmount !== ui.amount && (
-                                  <span className="mr-2" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through', fontSize: 10 }}>
-                                    ${ui.originalAmount}
-                                  </span>
-                                )}
-                                <span className="font-semibold">${ui.amount}</span>
-                              </div>
+                        {info.userItems.map((ui, i) => {
+                          const isUnpaid = ui.paymentMethod === 'unpaid';
+                          const isCash = ui.paymentMethod === 'cash';
+                          const isEditingAmount = amountEditing === ui.id;
+                          // Manually overridden: has originalAmount set but no discountType
+                          const isManual = !!ui.originalAmount && !ui.discountType;
+                          return (
+                            <div key={ui.id || i}>
+                              <SwipeToDelete onDelete={() => handleDeleteOrder(ui.id)}>
+                                <div className="flex items-center justify-between text-xs" style={{ padding: '6px 10px', background: isUnpaid ? '#FFF8E1' : 'white', borderRadius: 6 }}>
+                                  <div className="flex-1">
+                                    <span className="font-semibold">{ui.user}</span>
+                                    <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>{ui.items}</span>
+                                    {ui.discountType && (
+                                      <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
+                                        {formatDiscount(ui.discountType, ui.discountValue)}
+                                      </span>
+                                    )}
+                                    {isManual && (
+                                      <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 999, background: 'var(--color-primary)', color: 'white', fontWeight: 600 }}>
+                                        自訂金額
+                                      </span>
+                                    )}
+                                    {isUnpaid && (
+                                      <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 999, background: 'var(--color-warning)', color: 'white', fontWeight: 600 }}>
+                                        ⏳ 未付款
+                                      </span>
+                                    )}
+                                    {isCash && (
+                                      <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 999, background: 'var(--color-success)', color: 'white', fontWeight: 600 }}>
+                                        💵 現金
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-right flex items-center gap-2">
+                                    <div>
+                                      {ui.originalAmount && ui.originalAmount !== ui.amount && (
+                                        <span className="mr-2" style={{ color: 'var(--color-text-muted)', textDecoration: 'line-through', fontSize: 10 }}>
+                                          ${ui.originalAmount}
+                                        </span>
+                                      )}
+                                      <span className="font-semibold">${ui.amount}</span>
+                                    </div>
+                                    <button
+                                      className="btn"
+                                      onClick={(e) => { e.stopPropagation(); isEditingAmount ? closeAmountEdit() : openAmountEdit(ui.id, ui.amount); }}
+                                      style={{ fontSize: 11, padding: '2px 6px', background: 'transparent', border: '1px solid #E0E0E0', color: 'var(--color-text)' }}
+                                      title="手動改金額（不折扣品項）"
+                                    >✎</button>
+                                    {isUnpaid && (
+                                      <button
+                                        className="btn"
+                                        onClick={(e) => { e.stopPropagation(); handleCollectOrder(ui.id); }}
+                                        style={{
+                                          fontSize: 11, padding: '2px 8px',
+                                          background: 'var(--color-warning)', color: 'white', border: 'none',
+                                        }}
+                                      >收款</button>
+                                    )}
+                                  </div>
+                                </div>
+                              </SwipeToDelete>
+                              {isEditingAmount && (
+                                <div className="flex gap-2 mt-1 mb-1" style={{ padding: '0 10px' }}>
+                                  <input
+                                    className="input flex-1"
+                                    type="number"
+                                    inputMode="numeric"
+                                    placeholder="輸入實際金額"
+                                    value={amountValue}
+                                    onChange={e => setAmountValue(e.target.value === '' ? '' : Number(e.target.value))}
+                                    style={{ fontSize: 13, padding: '6px 10px' }}
+                                    autoFocus
+                                  />
+                                  <button
+                                    className="btn btn-primary"
+                                    onClick={() => saveAmountEdit(ui.id)}
+                                    style={{ fontSize: 12, padding: '6px 12px' }}
+                                  >儲存</button>
+                                  <button
+                                    className="btn"
+                                    onClick={closeAmountEdit}
+                                    style={{ fontSize: 12, padding: '6px 12px' }}
+                                  >取消</button>
+                                </div>
+                              )}
                             </div>
-                          </SwipeToDelete>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

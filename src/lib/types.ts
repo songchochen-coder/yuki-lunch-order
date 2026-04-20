@@ -5,6 +5,8 @@ export interface OrderItem {
   note?: string; // e.g. 加辣、不要香菜
 }
 
+export type PaymentMethod = 'balance' | 'cash' | 'unpaid';
+
 export interface LunchOrder {
   id: string;
   restaurant: string;
@@ -18,6 +20,25 @@ export interface LunchOrder {
   user: string;
   notes: string;
   createdAt: string;
+  // Payment tracking
+  // 'balance' — deducted from stored balance immediately (default; legacy orders)
+  // 'cash'    — paid in cash; no balance change
+  // 'unpaid'  — pending cash collection; no balance change
+  paymentMethod?: PaymentMethod;
+  paidAt?: string; // YYYY-MM-DD, set when unpaid → cash
+}
+
+// Legacy orders have no paymentMethod; treat them as 'balance'.
+export function getPaymentMethod(order: Pick<LunchOrder, 'paymentMethod'>): PaymentMethod {
+  return order.paymentMethod ?? 'balance';
+}
+
+export function formatPaymentMethod(method: PaymentMethod): string {
+  switch (method) {
+    case 'balance': return '儲值金';
+    case 'cash': return '現金';
+    case 'unpaid': return '未付款';
+  }
 }
 
 export function applyDiscount(
@@ -60,7 +81,8 @@ export interface MenuTemplate {
 export interface BalanceTransaction {
   id: string;
   user: string;
-  type: 'deposit' | 'deduct';
+  // 'deposit' +balance; 'deduct' -balance; 'cash' logs a cash receipt (no balance change)
+  type: 'deposit' | 'deduct' | 'cash';
   amount: number;
   orderId?: string;
   description: string;

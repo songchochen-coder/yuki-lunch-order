@@ -1,25 +1,47 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday } from '@/lib/types';
-import { getOrdersByWeek, getMembers } from '@/lib/client-db';
+import { getOrdersByWeek, getMembers, getUnpaidTotalsByUser, collectAllForUser } from '@/lib/client-db';
 
 export default function Home() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [unpaidTotals, setUnpaidTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
   const weekStart = getWeekStart(today);
   const weekDates = getWeekDates(today);
 
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2000);
+  }, []);
+
   useEffect(() => {
     setOrders(getOrdersByWeek(weekStart));
     setMembers(getMembers());
+    setUnpaidTotals(getUnpaidTotalsByUser());
     setLoading(false);
   }, [weekStart]);
+
+  function handleCollectUser(user: string) {
+    const total = unpaidTotals[user] || 0;
+    if (total <= 0) return;
+    if (!confirm(`確認向 ${user} 收取現金 $${total.toLocaleString()}？\n（會把所有未付款訂單一次銷帳）`)) return;
+    const { count, total: collected } = collectAllForUser(user);
+    if (count > 0) {
+      setUnpaidTotals(getUnpaidTotalsByUser());
+      setOrders(getOrdersByWeek(weekStart));
+      showToast(`已收款 $${collected.toLocaleString()}（${count} 筆）`);
+    } else {
+      showToast('沒有未付款訂單');
+    }
+  }
 
   const todayOrders = orders.filter(o => o.date === today);
   const weekTotal = orders.reduce((sum, o) => sum + o.totalAmount, 0);
@@ -71,20 +93,45 @@ export default function Home() {
             <Link href="/settings" className="text-xs font-semibold" style={{ color: 'var(--color-primary)' }}>管理 &rarr;</Link>
           </div>
           <div className="flex flex-col gap-2">
-            {members.map(m => (
-              <div key={m.name} className="flex items-center justify-between">
-                <span className="text-sm">{m.name}</span>
-                <div className="text-right">
-                  <span className="text-sm font-bold" style={{ color: m.balance < 0 ? 'var(--color-danger)' : m.balance < 200 ? 'var(--color-warning)' : 'var(--color-success)' }}>
-                    ${m.balance.toLocaleString()}
-                  </span>
-                  {userSpending[m.name] > 0 && (
-                    <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>本週 -${userSpending[m.name].toLocaleString()}</span>
-                  )}
+            {members.map(m => {
+              const unpaid = unpaidTotals[m.name] || 0;
+              return (
+                <div key={m.name} className="flex items-center justify-between">
+                  <span className="text-sm">{m.name}</span>
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <span className="text-sm font-bold" style={{ color: m.balance < 0 ? 'var(--color-danger)' : m.balance < 200 ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                        ${m.balance.toLocaleString()}
+                      </span>
+                      {userSpending[m.name] > 0 && (
+                        <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>本週 -${userSpending[m.name].toLocaleString()}</span>
+                      )}
+                    </div>
+                    {unpaid > 0 && (
+                      <button
+                        onClick={() => handleCollectUser(m.name)}
+                        className="btn"
+                        style={{
+                          fontSize: 11, padding: '3px 8px', border: 'none',
+                          background: 'var(--color-warning)', color: 'white', fontWeight: 600,
+                        }}
+                        title={`向 ${m.name} 收款`}
+                      >
+                        ⏳ 收款 ${unpaid.toLocaleString()}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          {Object.values(unpaidTotals).some(v => v > 0) && (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0F0F0' }}>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                💡 點右側「收款」按鈕一次銷掉該員所有未付款訂單
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -129,6 +176,7 @@ export default function Home() {
         )}
       </div>
 
+      {toast && <div className="toast">{toast}</div>}
       <BottomNav />
     </div>
   );
