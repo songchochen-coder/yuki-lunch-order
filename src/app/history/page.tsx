@@ -3,14 +3,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
-import { LunchOrder, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod } from '@/lib/types';
-import { getOrdersByWeek, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid } from '@/lib/client-db';
+import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod } from '@/lib/types';
+import { getOrdersByWeek, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, editOrder as dbEditOrder, getMembers } from '@/lib/client-db';
 
 export default function HistoryPage() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
   const [toast, setToast] = useState('');
+  const [editingOrder, setEditingOrder] = useState<LunchOrder | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
   const baseDate = new Date(today + 'T00:00:00');
@@ -27,8 +29,33 @@ export default function HistoryPage() {
   useEffect(() => {
     setLoading(true);
     setOrders(getOrdersByWeek(weekStart));
+    setMembers(getMembers());
     setLoading(false);
   }, [weekStart]);
+
+  function refresh() {
+    setOrders(getOrdersByWeek(weekStart));
+    setMembers(getMembers());
+  }
+
+  function handleSaveEdit(changes: {
+    date: string;
+    user: string;
+    restaurant: string;
+    itemsText: string;
+    totalAmount: number;
+    notes: string;
+  }) {
+    if (!editingOrder) return;
+    const updated = dbEditOrder(editingOrder.id, changes);
+    if (updated) {
+      refresh();
+      setEditingOrder(null);
+      showToast('已更新');
+    } else {
+      showToast('更新失敗');
+    }
+  }
 
   const weekTotal = orders.reduce((sum, o) => sum + o.totalAmount, 0);
   const weekUnpaid = orders.filter(o => getPaymentMethod(o) === 'unpaid').reduce((s, o) => s + o.totalAmount, 0);
@@ -185,6 +212,16 @@ export default function HistoryPage() {
                               )}
                               <p className="text-sm font-bold">${order.totalAmount.toLocaleString()}</p>
                             </div>
+                            <button
+                              className="btn"
+                              onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
+                              style={{
+                                fontSize: 11, padding: '3px 8px',
+                                background: 'transparent', color: 'var(--color-text)',
+                                border: '1px solid #E0E0E0',
+                              }}
+                              title="編輯訂單"
+                            >✎</button>
                             {method === 'unpaid' && (
                               <button
                                 className="btn"
@@ -220,7 +257,160 @@ export default function HistoryPage() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+      {editingOrder && (
+        <EditOrderModal
+          order={editingOrder}
+          members={members}
+          onSave={handleSaveEdit}
+          onCancel={() => setEditingOrder(null)}
+        />
+      )}
       <BottomNav />
+    </div>
+  );
+}
+
+function EditOrderModal({
+  order,
+  members,
+  onSave,
+  onCancel,
+}: {
+  order: LunchOrder;
+  members: Member[];
+  onSave: (changes: {
+    date: string;
+    user: string;
+    restaurant: string;
+    itemsText: string;
+    totalAmount: number;
+    notes: string;
+  }) => void;
+  onCancel: () => void;
+}) {
+  const [date, setDate] = useState(order.date);
+  const [user, setUser] = useState(order.user);
+  const [restaurant, setRestaurant] = useState(order.restaurant);
+  const [itemsText, setItemsText] = useState(order.itemsText);
+  const [totalAmount, setTotalAmount] = useState<number | ''>(order.totalAmount);
+  const [notes, setNotes] = useState(order.notes || '');
+  const method = getPaymentMethod(order);
+
+  const userChanged = user !== order.user;
+  const amountChanged = totalAmount !== order.totalAmount;
+  const targetMember = members.find(m => m.name === user);
+  const newAmount = typeof totalAmount === 'number' ? totalAmount : 0;
+  const willGoUnpaid = method === 'balance' && (userChanged || amountChanged) && (!targetMember || targetMember.balance < newAmount);
+
+  function handleSave() {
+    if (!restaurant.trim()) return;
+    if (newAmount <= 0) return;
+    onSave({
+      date,
+      user,
+      restaurant: restaurant.trim(),
+      itemsText: itemsText.trim() || restaurant.trim(),
+      totalAmount: newAmount,
+      notes: notes.trim(),
+    });
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        zIndex: 1000,
+      }}
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'white', width: '100%', maxWidth: 480,
+          borderRadius: '16px 16px 0 0', padding: 20,
+          maxHeight: '90vh', overflowY: 'auto',
+        }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold">編輯訂單</h2>
+          <button onClick={onCancel} className="btn btn-ghost" style={{ fontSize: 20, padding: '2px 8px' }}>×</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label className="input-label">日期</label>
+            <input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+
+          <div>
+            <label className="input-label">點餐人</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {members.map(m => (
+                <button
+                  key={m.name}
+                  onClick={() => setUser(m.name)}
+                  className="btn"
+                  style={{
+                    flex: '1 1 80px', fontSize: 13, padding: '8px 4px',
+                    background: user === m.name ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                    color: user === m.name ? 'white' : 'var(--color-text)',
+                    border: user === m.name ? 'none' : '1px solid #E0E0E0',
+                  }}
+                >{m.name}</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="input-label">餐廳名稱</label>
+            <input className="input" type="text" value={restaurant} onChange={e => setRestaurant(e.target.value)} />
+          </div>
+
+          <div>
+            <label className="input-label">品項說明</label>
+            <input className="input" type="text" value={itemsText} onChange={e => setItemsText(e.target.value)} />
+          </div>
+
+          <div>
+            <label className="input-label">金額 (NT$)</label>
+            <input
+              className="input"
+              type="number"
+              inputMode="numeric"
+              value={totalAmount}
+              onChange={e => setTotalAmount(e.target.value === '' ? '' : Number(e.target.value))}
+              style={{ fontSize: 16, fontWeight: 600 }}
+            />
+          </div>
+
+          <div>
+            <label className="input-label">備註</label>
+            <textarea className="input" rows={2} value={notes} onChange={e => setNotes(e.target.value)} style={{ resize: 'vertical' }} />
+          </div>
+
+          {/* Impact hint */}
+          {method === 'balance' && (userChanged || amountChanged) && (
+            <div style={{
+              padding: 10, borderRadius: 8,
+              background: willGoUnpaid ? '#FFF8E1' : '#E8F5E9',
+              fontSize: 12,
+              color: willGoUnpaid ? 'var(--color-warning)' : 'var(--color-success)',
+            }}>
+              {willGoUnpaid
+                ? `⚠️ ${user} 餘額不足，儲存後此筆會自動變「未付款」等收現金`
+                : userChanged
+                  ? `💳 儲存後：退 $${order.totalAmount} 給 ${order.user}，從 ${user} 扣 $${newAmount}`
+                  : `💳 儲存後：差額 $${Math.abs(newAmount - order.totalAmount)} 會${newAmount < order.totalAmount ? '退回' : '額外扣'} ${user} 儲值金`}
+            </div>
+          )}
+
+          <div className="flex gap-2 mt-2">
+            <button className="btn flex-1" onClick={onCancel} style={{ fontSize: 14 }}>取消</button>
+            <button className="btn btn-primary flex-1" onClick={handleSave} style={{ fontSize: 14 }}>儲存</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

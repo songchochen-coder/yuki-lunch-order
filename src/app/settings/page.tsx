@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import { Member, BalanceTransaction } from '@/lib/types';
 import { getSettings, saveSettings } from '@/lib/settings';
-import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, getTransactions as dbGetTransactions } from '@/lib/client-db';
+import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions } from '@/lib/client-db';
 
 export default function SettingsPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0]);
+  const [depositMode, setDepositMode] = useState<'add' | 'deduct'>('add');
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -65,15 +66,23 @@ export default function SettingsPage() {
 
     try {
       const amt = typeof depositAmount === 'number' ? depositAmount : 0;
-      dbDeposit(depositUser, amt, undefined, depositDate);
+      const signed = depositMode === 'add' ? amt : -amt;
+      if (depositMode === 'deduct') {
+        const member = members.find(m => m.name === depositUser);
+        if (!member) { showToast('找不到成員'); return; }
+        if (!confirm(`確認從 ${depositUser} 的儲值金扣回 $${amt}？\n目前餘額 $${member.balance} → 扣後 $${member.balance - amt}`)) return;
+      }
+      dbAdjustBalance(depositUser, signed, undefined, depositDate);
       setMembers(prev => prev.map(m =>
-        m.name === depositUser ? { ...m, balance: m.balance + amt } : m
+        m.name === depositUser ? { ...m, balance: m.balance + signed } : m
       ));
       const dateLabel = depositDate ? ` (${depositDate.slice(5).replace('-', '/')})` : '';
-      showToast(`已為 ${depositUser} 儲值 $${depositAmount}${dateLabel}`);
+      showToast(depositMode === 'add'
+        ? `已為 ${depositUser} 儲值 $${amt}${dateLabel}`
+        : `已從 ${depositUser} 扣回 $${amt}${dateLabel}`);
       setDepositAmount('');
     } catch {
-      showToast('儲值失敗');
+      showToast(depositMode === 'add' ? '儲值失敗' : '扣款失敗');
     }
   }
 
@@ -169,10 +178,40 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Deposit */}
+      {/* Deposit / Deduct */}
       <div className="card mb-4">
-        <p className="text-sm font-semibold mb-3">儲值</p>
+        <p className="text-sm font-semibold mb-3">儲值金調整</p>
         <div className="flex flex-col gap-3">
+          <div>
+            <label className="input-label">動作</label>
+            <div className="flex gap-2">
+              <button
+                className="btn flex-1"
+                onClick={() => setDepositMode('add')}
+                style={{
+                  fontSize: 14, padding: '8px 4px',
+                  background: depositMode === 'add' ? 'var(--color-success)' : 'var(--color-bg-input)',
+                  color: depositMode === 'add' ? 'white' : 'var(--color-text)',
+                  border: depositMode === 'add' ? 'none' : '1px solid #E0E0E0',
+                }}
+              >＋ 儲值</button>
+              <button
+                className="btn flex-1"
+                onClick={() => setDepositMode('deduct')}
+                style={{
+                  fontSize: 14, padding: '8px 4px',
+                  background: depositMode === 'deduct' ? 'var(--color-danger)' : 'var(--color-bg-input)',
+                  color: depositMode === 'deduct' ? 'white' : 'var(--color-text)',
+                  border: depositMode === 'deduct' ? 'none' : '1px solid #E0E0E0',
+                }}
+              >－ 扣回</button>
+            </div>
+            {depositMode === 'deduct' && (
+              <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                💡 多儲值要扣回、或修正錯誤時使用。會寫入一筆扣款交易紀錄。
+              </p>
+            )}
+          </div>
           <div>
             <label className="input-label">選擇成員</label>
             <div className="flex gap-2 flex-wrap">
@@ -194,7 +233,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <div>
-            <label className="input-label">儲值金額 (NT$)</label>
+            <label className="input-label">金額 (NT$)</label>
             <div className="flex gap-2">
               {[500, 1000, 2000].map(amt => (
                 <button
@@ -203,7 +242,7 @@ export default function SettingsPage() {
                   onClick={() => setDepositAmount(amt)}
                   style={{
                     fontSize: 14, padding: '8px 4px',
-                    background: depositAmount === amt ? 'var(--color-success)' : 'var(--color-bg-input)',
+                    background: depositAmount === amt ? (depositMode === 'add' ? 'var(--color-success)' : 'var(--color-danger)') : 'var(--color-bg-input)',
                     color: depositAmount === amt ? 'white' : 'var(--color-text)',
                     border: depositAmount === amt ? 'none' : '1px solid #E0E0E0',
                   }}
@@ -222,7 +261,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="input-label">儲值日期</label>
+            <label className="input-label">日期</label>
             <input
               className="input"
               type="date"
@@ -230,8 +269,17 @@ export default function SettingsPage() {
               onChange={e => setDepositDate(e.target.value)}
             />
           </div>
-          <button className="btn btn-primary btn-block" onClick={handleDeposit} disabled={!depositUser || !depositAmount}>
-            確認儲值
+          <button
+            className="btn btn-block"
+            onClick={handleDeposit}
+            disabled={!depositUser || !depositAmount}
+            style={{
+              background: depositMode === 'add' ? 'var(--color-primary)' : 'var(--color-danger)',
+              color: 'white',
+              border: 'none',
+            }}
+          >
+            {depositMode === 'add' ? '確認儲值' : '確認扣回'}
           </button>
         </div>
       </div>

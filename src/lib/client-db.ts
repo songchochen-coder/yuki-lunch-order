@@ -117,6 +117,74 @@ export function getUnpaidOrders(user?: string): LunchOrder[] {
   return getOrders().filter(o => getPaymentMethod(o) === 'unpaid' && (!user || o.user === user));
 }
 
+// Edit an existing order's editable fields. Handles balance reconciliation when
+// the user or amount changes on a balance-paid order:
+//   - Refund the old amount to the old user
+//   - Re-deduct the new amount from the new user if they have enough balance
+//   - Otherwise switch paymentMethod to 'unpaid' (no balance change)
+// Unpaid orders: just update fields (no balance effect).
+// Cash orders: update fields in place; the original cash receipt transaction
+// stays in history (user can delete + recreate if they need to fix cash flow).
+export function editOrder(
+  id: string,
+  changes: {
+    date?: string;
+    user?: string;
+    restaurant?: string;
+    itemsText?: string;
+    totalAmount?: number;
+    notes?: string;
+  },
+): LunchOrder | null {
+  const orders = getOrders();
+  const idx = orders.findIndex(o => o.id === id);
+  if (idx === -1) return null;
+  const old = orders[idx];
+  const method = getPaymentMethod(old);
+
+  const newUser = changes.user ?? old.user;
+  const newAmount = changes.totalAmount ?? old.totalAmount;
+  const userChanged = newUser !== old.user;
+  const amountChanged = changes.totalAmount !== undefined && changes.totalAmount !== old.totalAmount;
+
+  // Balance reconciliation (only balance-paid orders touch stored value)
+  let newMethod = method;
+  if (method === 'balance' && (userChanged || amountChanged)) {
+    // Refund original amount to original user
+    refundBalance(old.user, old.totalAmount, old.id, `編輯前退款 - ${old.restaurant}`);
+    // Try to deduct new amount from new user
+    const members = getMembers();
+    const target = members.find(m => m.name === newUser);
+    if (target && target.balance >= newAmount) {
+      deductBalance(newUser, newAmount, old.id, `編輯後扣款 - ${changes.restaurant ?? old.restaurant}`);
+      newMethod = 'balance';
+    } else {
+      // Insufficient balance → let it become unpaid
+      newMethod = 'unpaid';
+    }
+  }
+
+  // Build the updated order
+  const base = old.originalAmount ?? old.totalAmount;
+  const updated: LunchOrder = {
+    ...old,
+    ...changes,
+    paymentMethod: newMethod,
+    paidAt: newMethod === 'cash' ? (old.paidAt ?? old.date) : (newMethod === 'unpaid' ? undefined : old.paidAt),
+    // Amount change clears the discount formula (manual override semantics),
+    // but keeps originalAmount so we still show the before/after strikethrough.
+    originalAmount: amountChanged
+      ? (newAmount === base ? undefined : base)
+      : old.originalAmount,
+    discountType: amountChanged ? undefined : old.discountType,
+    discountValue: amountChanged ? undefined : old.discountValue,
+  };
+
+  orders[idx] = updated;
+  writeStore('lunch-orders', orders);
+  return updated;
+}
+
 // Reverse a balance-paid order back to unpaid state. Used to retroactively fix
 // orders that were placed before the auto-unpaid logic existed (e.g. today's
 // orders that deducted balance into the negative). Refunds the amount to the
@@ -309,6 +377,42 @@ export function deposit(user: string, amount: number, description?: string, depo
     type: 'deposit',
     amount,
     description: description || `儲值 $${amount}`,
+    date,
+    createdAt: new Date().toISOString(),
+  };
+  const txs = getTransactions();
+  txs.push(tx);
+  writeStore('lunch-transactions', txs);
+  return tx;
+}
+
+// Manually adjust a member's balance. Positive = add (same as deposit);
+// negative = subtract (refund excess stored value, correct mistakes, etc.).
+// Always a positive-valued amount stored in the transaction; the type field
+// distinguishes direction. Use description to note WHY the adjustment happened.
+export function adjustBalance(
+  user: string,
+  signedAmount: number,
+  description?: string,
+  adjustDate?: string,
+): BalanceTransaction {
+  if (signedAmount === 0) throw new Error('Adjustment cannot be zero');
+  const members = getMembers();
+  const member = members.find(m => m.name === user);
+  if (!member) throw new Error(`Member "${user}" not found`);
+
+  member.balance += signedAmount;
+  writeStore('lunch-members', members);
+
+  const date = adjustDate || new Date().toISOString().split('T')[0];
+  const isCredit = signedAmount > 0;
+  const magnitude = Math.abs(signedAmount);
+  const tx: BalanceTransaction = {
+    id: generateId(),
+    user,
+    type: isCredit ? 'deposit' : 'deduct',
+    amount: magnitude,
+    description: description || (isCredit ? `儲值 $${magnitude}` : `手動扣款 $${magnitude}`),
     date,
     createdAt: new Date().toISOString(),
   };

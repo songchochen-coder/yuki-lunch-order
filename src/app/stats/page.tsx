@@ -248,8 +248,9 @@ export default function StatsPage() {
             <label className="input-label">選擇日期</label>
             <div className="flex gap-2 items-center">
               <button className="btn btn-ghost" onClick={() => {
-                const d = new Date(selectedDate + 'T00:00:00');
-                d.setDate(d.getDate() - 1);
+                // Use UTC math to avoid timezone issues (UTC+8 was breaking right arrow)
+                const d = new Date(selectedDate + 'T00:00:00Z');
+                d.setUTCDate(d.getUTCDate() - 1);
                 setSelectedDate(d.toISOString().split('T')[0]);
               }}>←</button>
               <input
@@ -260,8 +261,8 @@ export default function StatsPage() {
                 style={{ textAlign: 'center' }}
               />
               <button className="btn btn-ghost" onClick={() => {
-                const d = new Date(selectedDate + 'T00:00:00');
-                d.setDate(d.getDate() + 1);
+                const d = new Date(selectedDate + 'T00:00:00Z');
+                d.setUTCDate(d.getUTCDate() + 1);
                 setSelectedDate(d.toISOString().split('T')[0]);
               }}>→</button>
             </div>
