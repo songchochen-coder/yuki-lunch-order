@@ -31,6 +31,40 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
+        {/* Skin: apply saved primary color + wallpaper BEFORE React hydrates
+            so users never see a flash of the default theme. Runs inline, once. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var s = JSON.parse(localStorage.getItem('lunch-skin') || '{}');
+                  var presets = {
+                    '#FF8C42': '#E07030', '#5B8FF9': '#4A76D6', '#52C41A': '#3FA00D',
+                    '#EB5C9F': '#D44583', '#845EC2': '#6B47A0', '#14B8A6': '#0E948A',
+                    '#E53935': '#C1272D', '#4B5563': '#374151'
+                  };
+                  if (s.primaryColor) {
+                    document.documentElement.style.setProperty('--color-primary', s.primaryColor);
+                    var dark = presets[s.primaryColor.toUpperCase()] || s.primaryColor;
+                    document.documentElement.style.setProperty('--color-primary-dark', dark);
+                    var meta = document.querySelector('meta[name="theme-color"]');
+                    if (meta) meta.setAttribute('content', s.primaryColor);
+                  }
+                  if (s.wallpaper) {
+                    var r = document.documentElement;
+                    r.style.backgroundImage = 'url("' + s.wallpaper + '")';
+                    r.style.backgroundSize = 'cover';
+                    r.style.backgroundPosition = 'center center';
+                    r.style.backgroundAttachment = 'fixed';
+                    r.style.backgroundRepeat = 'no-repeat';
+                    document.body.style.backgroundColor = 'transparent';
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
         {children}
         <script
           dangerouslySetInnerHTML={{

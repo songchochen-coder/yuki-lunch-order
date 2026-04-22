@@ -149,7 +149,7 @@ export default function Home() {
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Link href="/add" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/snoopy/food.png" alt="" style={{ width: 44, height: 44, objectFit: 'contain' }} /><span className="text-xs">點餐</span>
+          <img src="/snoopy/food-hero.png" alt="" style={{ width: 44, height: 44, objectFit: 'contain' }} /><span className="text-xs">點餐</span>
         </Link>
         <Link href="/scan" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}

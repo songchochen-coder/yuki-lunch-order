@@ -5,6 +5,7 @@ import BottomNav from '@/components/BottomNav';
 import { Member, BalanceTransaction } from '@/lib/types';
 import { getSettings, saveSettings } from '@/lib/settings';
 import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions } from '@/lib/client-db';
+import { AppSkin, getSkin, saveSkin, applySkin, COLOR_PRESETS, WALLPAPER_PRESETS } from '@/lib/skin';
 
 export default function SettingsPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -18,6 +19,7 @@ export default function SettingsPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0]);
   const [depositMode, setDepositMode] = useState<'add' | 'deduct'>('add');
+  const [skin, setSkinState] = useState<AppSkin>({ primaryColor: '#FF8C42', wallpaper: null });
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -31,8 +33,16 @@ export default function SettingsPage() {
     settings.users = data.map((m: Member) => m.name);
     saveSettings(settings);
     setGeminiApiKey(settings.geminiApiKey || '');
+    setSkinState(getSkin());
     setLoading(false);
   }, []);
+
+  function updateSkin(patch: Partial<AppSkin>) {
+    const next = { ...skin, ...patch };
+    setSkinState(next);
+    saveSkin(next);
+    applySkin(next);
+  }
 
   function addMember() {
     const name = newMemberName.trim();
@@ -314,6 +324,77 @@ export default function SettingsPage() {
             已設定 (Key 儲存在你的瀏覽器中)
           </p>
         )}
+      </div>
+
+      {/* Skin / Theme */}
+      <div className="card mb-4">
+        <p className="text-sm font-semibold mb-3">🎨 主題設定</p>
+
+        <div className="mb-4">
+          <label className="input-label">主色調</label>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {COLOR_PRESETS.map(preset => {
+              const active = skin.primaryColor.toLowerCase() === preset.value.toLowerCase();
+              return (
+                <button
+                  key={preset.value}
+                  onClick={() => updateSkin({ primaryColor: preset.value })}
+                  title={preset.name}
+                  style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: preset.value,
+                    border: active ? '3px solid #1A1A1A' : '2px solid #FFF',
+                    boxShadow: active ? '0 0 0 2px ' + preset.value : '0 0 0 1px #E0E0E0',
+                    cursor: 'pointer', padding: 0,
+                  }}
+                />
+              );
+            })}
+          </div>
+          <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+            影響按鈕、徽章、連結等所有主色元素
+          </p>
+        </div>
+
+        <div>
+          <label className="input-label">桌布</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {/* "None" option */}
+            <button
+              onClick={() => updateSkin({ wallpaper: null })}
+              style={{
+                height: 72, borderRadius: 8,
+                background: 'var(--color-bg-input)',
+                border: skin.wallpaper === null ? '3px solid var(--color-primary)' : '1px solid #E0E0E0',
+                fontSize: 12, color: 'var(--color-text-secondary)',
+                cursor: 'pointer',
+              }}
+            >無</button>
+            {WALLPAPER_PRESETS.map(wp => {
+              const active = skin.wallpaper === wp;
+              return (
+                <button
+                  key={wp}
+                  onClick={() => updateSkin({ wallpaper: wp })}
+                  aria-label={`桌布 ${wp}`}
+                  style={{
+                    height: 72, borderRadius: 8,
+                    backgroundImage: `url("${wp}")`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    border: active ? '3px solid var(--color-primary)' : '1px solid #E0E0E0',
+                    cursor: 'pointer', padding: 0,
+                  }}
+                />
+              );
+            })}
+          </div>
+          {skin.wallpaper && (
+            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+              💡 桌布顯示在內容卡片後方。若覺得太花可換「無」回乾淨底色。
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Data Management */}
