@@ -220,7 +220,11 @@ export default function ConfirmPage() {
         <button onClick={() => router.back()} className="btn btn-ghost">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
         </button>
-        <h1 className="text-xl font-bold">團隊點餐</h1>
+        <h1 className="text-xl font-bold flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/snoopy/scan-hero.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+          <span>團隊點餐</span>
+        </h1>
       </div>
 
       {/* Restaurant & Date & Phone */}

@@ -111,7 +111,11 @@ export default function HistoryPage() {
 
   return (
     <div className="page-container">
-      <h1 className="text-xl font-bold mb-4">📋 點餐紀錄</h1>
+      <h1 className="text-xl font-bold mb-4 flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/snoopy/history.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+        <span>點餐紀錄</span>
+      </h1>
 
       {/* Week Navigator */}
       <div className="card mb-4 flex items-center justify-between">
