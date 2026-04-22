@@ -146,11 +146,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* Home action shortcuts: each link is a single tinted circle that holds
-          both the icon and the label. Background is a light tint of the skin's
-          primary color (via color-mix) so the whole frame recolors with the
-          theme instead of always being white. */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      {/* Home action shortcuts. The Link itself IS the circle — tap target
+          matches the visible shape (no invisible rectangle around it). Uses a
+          flex-column grid so the row stays centered on the page. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginBottom: 16 }}>
         {[
           { href: '/add',         img: '/snoopy/food-hero.png', label: '點餐' },
           { href: '/scan',        img: '/snoopy/scan-hero.png', label: '拍照辨識' },
@@ -160,40 +159,34 @@ export default function Home() {
           <Link
             key={a.href}
             href={a.href}
-            className="flex items-center justify-center"
             style={{
-              padding: '6px 4px',
+              width: 128,
+              height: 128,
+              borderRadius: '50%',
+              background: 'color-mix(in srgb, var(--color-primary) 14%, white)',
+              border: '2.5px solid var(--color-primary)',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              overflow: 'hidden',
               textDecoration: 'none',
               color: 'var(--color-text)',
+              flexShrink: 0,
             }}
           >
-            <div
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={a.img} alt="" style={{ width: 78, height: 78, objectFit: 'contain' }} />
+            <span
               style={{
-                width: 128,
-                height: 128,
-                borderRadius: '50%',
-                background: 'color-mix(in srgb, var(--color-primary) 14%, white)',
-                border: '2.5px solid var(--color-primary)',
-                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 2,
-                overflow: 'hidden',
+                fontSize: 12,
+                fontWeight: 700,
+                color: 'var(--color-primary-dark)',
+                lineHeight: 1,
               }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={a.img} alt="" style={{ width: 78, height: 78, objectFit: 'contain' }} />
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: 'var(--color-primary-dark)',
-                  lineHeight: 1,
-                }}
-              >{a.label}</span>
-            </div>
+            >{a.label}</span>
           </Link>
         ))}
       </div>
