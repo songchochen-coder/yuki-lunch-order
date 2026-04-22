@@ -117,8 +117,10 @@ export default function ScanPage() {
           </div>
           <p className="text-sm text-center" style={{ color: 'var(--color-text-secondary)' }}>拍攝菜單照片或從相簿選取</p>
           <div className="w-full max-w-xs">
-            <label style={{ position: 'relative', overflow: 'hidden', display: 'flex' }} className="btn btn-primary btn-lg btn-block cursor-pointer">
-              📷 選擇照片
+            <label style={{ position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} className="btn btn-primary btn-lg btn-block cursor-pointer">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/snoopy/scan-hero.png" alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+              <span>選擇照片</span>
               <input type="file" accept="image/*" onChange={handleFileChange} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
             </label>
           </div>
