@@ -109,11 +109,9 @@ export default function ScanPage() {
         </div>
       ) : (
         <div className="card flex flex-col items-center justify-center py-12 gap-6">
-          <div className="w-24 h-24 rounded-full flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
+          <div className="w-28 h-28 rounded-full flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/snoopy/scan-hero.png" alt="" style={{ width: 88, height: 88, objectFit: 'contain' }} />
           </div>
           <p className="text-sm text-center" style={{ color: 'var(--color-text-secondary)' }}>拍攝菜單照片或從相簿選取</p>
           <div className="w-full max-w-xs">

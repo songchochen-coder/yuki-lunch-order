@@ -4,17 +4,20 @@
 const STORAGE_KEY = 'lunch-skin';
 
 export type ColorScheme = 'light' | 'dark';
+export type TextSize = 'normal' | 'large';
 
 export interface AppSkin {
   primaryColor: string;   // hex, e.g. "#FF8C42"
   wallpaper: string | null; // relative path like "/wallpapers/wp-01.jpg", or null for none
   colorScheme: ColorScheme;
+  textSize: TextSize;
 }
 
 export const DEFAULT_SKIN: AppSkin = {
   primaryColor: '#F4A261',
   wallpaper: null,
   colorScheme: 'light',
+  textSize: 'normal',
 };
 
 // Color presets shown in the settings picker. Softer / Morandi-inspired
@@ -79,6 +82,15 @@ export function applySkin(skin: AppSkin): void {
     root.classList.add('dark');
   } else {
     root.classList.remove('dark');
+  }
+
+  // Large-text mode toggle (老花眼友善) — scales up root font-size so every
+  // rem-based element (Tailwind text-*, our .btn/.input/.toast classes) grows
+  // proportionally. Inline px-based text stays at its coded size.
+  if (skin.textSize === 'large') {
+    root.classList.add('text-large');
+  } else {
+    root.classList.remove('text-large');
   }
 
   // Browser chrome color (Safari/Chrome mobile top bar).

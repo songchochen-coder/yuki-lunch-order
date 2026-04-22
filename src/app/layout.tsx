@@ -57,6 +57,7 @@ export default function RootLayout({
                     if (meta) meta.setAttribute('content', s.primaryColor);
                   }
                   if (s.colorScheme === 'dark') r.classList.add('dark');
+                  if (s.textSize === 'large') r.classList.add('text-large');
                   if (s.wallpaper) {
                     r.style.backgroundImage = 'url("' + s.wallpaper + '")';
                     r.style.backgroundSize = 'cover';

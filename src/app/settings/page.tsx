@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0]);
   const [depositMode, setDepositMode] = useState<'add' | 'deduct'>('add');
-  const [skin, setSkinState] = useState<AppSkin>({ primaryColor: '#F4A261', wallpaper: null, colorScheme: 'light' });
+  const [skin, setSkinState] = useState<AppSkin>({ primaryColor: '#F4A261', wallpaper: null, colorScheme: 'light', textSize: 'normal' });
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -338,8 +338,8 @@ export default function SettingsPage() {
           <label className="input-label">顯示模式</label>
           <div className="flex gap-2">
             {([
-              { key: 'light', label: '☀️ 淺色', color: '#FFF8F2' },
-              { key: 'dark',  label: '🌙 深色', color: '#1E1E22' },
+              { key: 'light', label: '☀️ 淺色' },
+              { key: 'dark',  label: '🌙 深色' },
             ] as const).map(opt => {
               const active = skin.colorScheme === opt.key;
               return (
@@ -357,6 +357,36 @@ export default function SettingsPage() {
               );
             })}
           </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="input-label">字體大小</label>
+          <div className="flex gap-2">
+            {([
+              { key: 'normal', label: 'A 標準',  hint: '一般尺寸' },
+              { key: 'large',  label: 'A 大字體', hint: '老花眼友善 (+20%)' },
+            ] as const).map(opt => {
+              const active = skin.textSize === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => updateSkin({ textSize: opt.key })}
+                  className="btn flex-1"
+                  style={{
+                    fontSize: opt.key === 'large' ? 17 : 14,
+                    padding: '10px 4px',
+                    background: active ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                    color: active ? 'white' : 'var(--color-text)',
+                    border: active ? 'none' : '1px solid var(--color-border)',
+                  }}
+                  title={opt.hint}
+                >{opt.label}</button>
+              );
+            })}
+          </div>
+          <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+            💡 放大會影響全站的按鈕、輸入框、卡片文字
+          </p>
         </div>
 
         <div className="mb-4">
