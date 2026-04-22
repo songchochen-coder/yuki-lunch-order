@@ -307,7 +307,11 @@ export default function StatsPage() {
                   <div key={name} className="card">
                     <div className="flex items-center justify-between mb-3 pb-2" style={{ borderBottom: '2px solid var(--color-primary)' }}>
                       <div>
-                        <p className="text-base font-bold">🏪 {name}</p>
+                        <p className="text-base font-bold flex items-center gap-2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/snoopy/food.png" alt="" style={{ width: 24, height: 24, objectFit: 'contain' }} />
+                          {name}
+                        </p>
                         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                           {info.orderCount} 人訂餐
                         </p>

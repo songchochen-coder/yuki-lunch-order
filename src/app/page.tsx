@@ -56,7 +56,8 @@ export default function Home() {
     return (
       <div className="page-container">
         <div className="flex flex-col items-center justify-center" style={{ minHeight: '60vh' }}>
-          <div className="text-3xl mb-4">🍱</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/snoopy/food.png" alt="食物" style={{ width: 56, height: 56, objectFit: 'contain', marginBottom: 12 }} />
           <p style={{ color: 'var(--color-text-secondary)' }}>載入中...</p>
         </div>
         <BottomNav />
@@ -67,7 +68,13 @@ export default function Home() {
   return (
     <div className="page-container">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">🍱 午餐點餐紀錄</h1>
+        <h1 className="text-xl font-bold flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/snoopy/food.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain' }} />
+          <span>午餐點餐紀錄</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/snoopy/sakura.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+        </h1>
         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
           {formatDate(weekDates[0])} ~ {formatDate(weekDates[4])}
         </span>
@@ -89,7 +96,11 @@ export default function Home() {
       {members.length > 0 && (
         <div className="card mb-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold">成員儲值餘額</p>
+            <p className="text-sm font-semibold flex items-center gap-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/snoopy/transfer.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+              成員儲值餘額
+            </p>
             <Link href="/settings" className="text-xs font-semibold" style={{ color: 'var(--color-primary)' }}>管理 &rarr;</Link>
           </div>
           <div className="flex flex-col gap-2">
@@ -137,7 +148,8 @@ export default function Home() {
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Link href="/add" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
-          <span className="text-xl">🍱</span><span className="text-xs">點餐</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/snoopy/food.png" alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} /><span className="text-xs">點餐</span>
         </Link>
         <Link href="/scan" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           <span className="text-xl">📷</span><span className="text-xs">拍照辨識</span>
@@ -164,7 +176,8 @@ export default function Home() {
           <div className="flex flex-col gap-2">
             {todayOrders.map(order => (
               <div key={order.id} className="card flex items-center gap-3" style={{ padding: '12px var(--spacing-md)' }}>
-                <span className="text-2xl">🍱</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/snoopy/food.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate">{order.restaurant}</p>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{order.user} &middot; {order.itemsText}</p>

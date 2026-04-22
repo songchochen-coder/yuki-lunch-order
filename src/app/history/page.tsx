@@ -184,7 +184,8 @@ export default function HistoryPage() {
                     return (
                       <SwipeToDelete key={order.id} onDelete={() => handleDelete(order.id)}>
                         <div className="card flex items-center gap-3" style={{ padding: '10px var(--spacing-md)' }}>
-                          <span className="text-xl">🍱</span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/snoopy/food.png" alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate">
                               {order.restaurant}

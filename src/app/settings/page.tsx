@@ -180,7 +180,11 @@ export default function SettingsPage() {
 
       {/* Deposit / Deduct */}
       <div className="card mb-4">
-        <p className="text-sm font-semibold mb-3">儲值金調整</p>
+        <p className="text-sm font-semibold mb-3 flex items-center gap-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/snoopy/transfer.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+          儲值金調整
+        </p>
         <div className="flex flex-col gap-3">
           <div>
             <label className="input-label">動作</label>
