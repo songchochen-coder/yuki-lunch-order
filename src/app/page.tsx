@@ -146,23 +146,37 @@ export default function Home() {
         </div>
       )}
 
+      {/* Home action shortcuts: icons float directly over the wallpaper with
+          no button chrome. Text has a subtle shadow to stay readable on any
+          background without fighting the wallpaper visually. */}
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <Link href="/add" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/snoopy/food-hero.png" alt="" style={{ width: 44, height: 44, objectFit: 'contain' }} /><span className="text-xs">點餐</span>
-        </Link>
-        <Link href="/scan" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/snoopy/scan-hero.png" alt="" style={{ width: 44, height: 44, objectFit: 'contain' }} /><span className="text-xs">拍照辨識</span>
-        </Link>
-        <Link href="/weekly-plan" className="btn btn-outline btn-lg flex flex-col items-center gap-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon-512.png" alt="" style={{ width: 44, height: 44, objectFit: 'contain' }} /><span className="text-xs">整週預排</span>
-        </Link>
-        <Link href="/menus" className="btn btn-outline btn-lg flex flex-col items-center gap-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/snoopy/menu.png" alt="" style={{ width: 44, height: 44, objectFit: 'contain' }} /><span className="text-xs">菜單庫</span>
-        </Link>
+        {[
+          { href: '/add',         img: '/snoopy/food-hero.png', label: '點餐' },
+          { href: '/scan',        img: '/snoopy/scan-hero.png', label: '拍照辨識' },
+          { href: '/weekly-plan', img: '/icon-512.png',         label: '整週預排' },
+          { href: '/menus',       img: '/snoopy/menu.png',      label: '菜單庫' },
+        ].map(a => (
+          <Link
+            key={a.href}
+            href={a.href}
+            className="flex flex-col items-center justify-center"
+            style={{
+              gap: 6, padding: '16px 8px',
+              textDecoration: 'none',
+              color: 'var(--color-text)',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={a.img} alt="" style={{ width: 64, height: 64, objectFit: 'contain' }} />
+            <span
+              className="text-xs"
+              style={{
+                fontWeight: 600,
+                textShadow: '0 1px 2px rgba(255,255,255,0.9), 0 0 8px rgba(255,255,255,0.6)',
+              }}
+            >{a.label}</span>
+          </Link>
+        ))}
       </div>
 
       <div className="mb-4">
