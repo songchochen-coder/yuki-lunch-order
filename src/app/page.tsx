@@ -171,7 +171,7 @@ export default function Home() {
                 width: 84,
                 height: 84,
                 borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.92)',
+                background: '#FFFFFF',
                 border: '2.5px solid var(--color-primary)',
                 boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)',
                 display: 'flex',
