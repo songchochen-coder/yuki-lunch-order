@@ -146,25 +146,29 @@ export default function Home() {
         </div>
       )}
 
+      {/* Home action shortcuts — matches ledger-pwa's approach: every button is
+          btn-primary (solid themed fill) and the icons are transparent-bg
+          silhouettes so the button color shows through the empty pixels
+          around the character. Perfect visual blend. */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Link href="/add" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/snoopy/food-hero.png" alt="" style={{ width: 56, height: 56, objectFit: 'contain' }} />
+          <img src="/snoopy/food.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain' }} />
           <span className="text-xs">點餐</span>
         </Link>
         <Link href="/scan" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/snoopy/scan-hero.png" alt="" style={{ width: 56, height: 56, objectFit: 'contain' }} />
+          <img src="/snoopy/scan.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain' }} />
           <span className="text-xs">拍照辨識</span>
         </Link>
-        <Link href="/weekly-plan" className="btn btn-outline btn-lg flex flex-col items-center gap-1">
+        <Link href="/weekly-plan" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon-512.png" alt="" style={{ width: 56, height: 56, objectFit: 'contain' }} />
+          <img src="/snoopy/sakura.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain' }} />
           <span className="text-xs">整週預排</span>
         </Link>
-        <Link href="/menus" className="btn btn-outline btn-lg flex flex-col items-center gap-1">
+        <Link href="/menus" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/snoopy/menu.png" alt="" style={{ width: 56, height: 56, objectFit: 'contain' }} />
+          <img src="/snoopy/transfer.png" alt="" style={{ width: 48, height: 48, objectFit: 'contain' }} />
           <span className="text-xs">菜單庫</span>
         </Link>
       </div>
