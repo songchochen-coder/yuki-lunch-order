@@ -146,9 +146,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* Home action shortcuts: icon inside a circular frame with primary-color
-          border (matches the current skin), label below. The semi-opaque white
-          fill keeps the icon readable over any wallpaper. */}
+      {/* Home action shortcuts: each link is a single tinted circle that holds
+          both the icon and the label. Background is a light tint of the skin's
+          primary color (via color-mix) so the whole frame recolors with the
+          theme instead of always being white. */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         {[
           { href: '/add',         img: '/snoopy/food-hero.png', label: '點餐' },
@@ -159,37 +160,40 @@ export default function Home() {
           <Link
             key={a.href}
             href={a.href}
-            className="flex flex-col items-center justify-center"
+            className="flex items-center justify-center"
             style={{
-              gap: 8, padding: '10px 8px',
+              padding: '6px 4px',
               textDecoration: 'none',
               color: 'var(--color-text)',
             }}
           >
             <div
               style={{
-                width: 84,
-                height: 84,
+                width: 128,
+                height: 128,
                 borderRadius: '50%',
-                background: '#FFFFFF',
+                background: 'color-mix(in srgb, var(--color-primary) 14%, white)',
                 border: '2.5px solid var(--color-primary)',
                 boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
+                gap: 2,
                 overflow: 'hidden',
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={a.img} alt="" style={{ width: 60, height: 60, objectFit: 'contain' }} />
+              <img src={a.img} alt="" style={{ width: 78, height: 78, objectFit: 'contain' }} />
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: 'var(--color-primary-dark)',
+                  lineHeight: 1,
+                }}
+              >{a.label}</span>
             </div>
-            <span
-              className="text-xs"
-              style={{
-                fontWeight: 600,
-                textShadow: '0 1px 2px rgba(255,255,255,0.9), 0 0 6px rgba(255,255,255,0.7)',
-              }}
-            >{a.label}</span>
           </Link>
         ))}
       </div>
