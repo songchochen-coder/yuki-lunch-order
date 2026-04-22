@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 const NAV_ITEMS = [
   { href: '/', img: '/snoopy/home.png', label: '首頁' },
   { href: '/history', img: '/snoopy/history.png', label: '紀錄' },
-  { href: '/scan', img: '/snoopy/scan.png', label: '掃描' },
+  { href: '/scan', img: '/snoopy/scan-hero.png', label: '掃描' },
   { href: '/stats', img: '/snoopy/stats.png', label: '統計' },
   { href: '/settings', img: '/snoopy/settings.png', label: '設定' },
 ];

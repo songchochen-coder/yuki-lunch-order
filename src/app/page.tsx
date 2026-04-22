@@ -70,7 +70,7 @@ export default function Home() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/snoopy/food.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain' }} />
+          <img src="/snoopy/menu-hero.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
           <span>午餐點餐紀錄</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/snoopy/sakura.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
@@ -146,7 +146,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mt-6 mb-4">
         <Link href="/add" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/snoopy/food-hero.png" alt="" style={{ width: 56, height: 56, objectFit: 'contain' }} />

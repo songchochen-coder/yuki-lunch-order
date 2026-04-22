@@ -116,7 +116,11 @@ export default function SettingsPage() {
 
   return (
     <div className="page-container">
-      <h1 className="text-xl font-bold mb-4">⚙️ 設定</h1>
+      <h1 className="text-xl font-bold mb-4 flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/snoopy/settings.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+        <span>設定</span>
+      </h1>
 
       {/* Members */}
       <div className="card mb-4">

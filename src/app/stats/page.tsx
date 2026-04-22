@@ -213,7 +213,11 @@ export default function StatsPage() {
 
   return (
     <div className="page-container">
-      <h1 className="text-xl font-bold mb-4">📊 統計</h1>
+      <h1 className="text-xl font-bold mb-4 flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/snoopy/stats.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+        <span>統計</span>
+      </h1>
 
       {/* Tab Toggle */}
       <div className="flex gap-2 mb-4">
