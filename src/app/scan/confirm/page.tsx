@@ -275,9 +275,9 @@ export default function ConfirmPage() {
                 style={{
                   minWidth: 0, flex: '1 0 auto', fontSize: 13, padding: '8px 12px',
                   flexDirection: 'column', gap: 2,
-                  background: activeUser === idx ? 'var(--color-primary)' : hasItems ? '#FFF3E0' : 'var(--color-bg-input)',
+                  background: activeUser === idx ? 'var(--color-primary)' : hasItems ? 'var(--color-tint-primary)' : 'var(--color-bg-input)',
                   color: activeUser === idx ? 'white' : 'var(--color-text)',
-                  border: activeUser === idx ? 'none' : hasItems ? '2px solid var(--color-primary)' : '1px solid #E0E0E0',
+                  border: activeUser === idx ? 'none' : hasItems ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
                 }}
               >
                 <span>{u}</span>
@@ -301,7 +301,7 @@ export default function ConfirmPage() {
                 key={idx}
                 style={{
                   padding: '10px 12px', borderRadius: 8,
-                  background: selected ? '#FFF3E0' : 'var(--color-bg)',
+                  background: selected ? 'var(--color-tint-primary)' : 'var(--color-bg)',
                   border: selected ? '2px solid var(--color-primary)' : '1px solid #EEE',
                 }}
               >
@@ -310,7 +310,7 @@ export default function ConfirmPage() {
                     onClick={() => toggleUserItem(activeUser, idx)}
                     style={{
                       width: 26, height: 26, borderRadius: 6, flexShrink: 0,
-                      border: selected ? 'none' : '2px solid #CCC',
+                      border: selected ? 'none' : '2px solid var(--color-border)',
                       background: selected ? 'var(--color-primary)' : 'transparent',
                       color: 'white', fontSize: 14, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -355,7 +355,7 @@ export default function ConfirmPage() {
 
       {/* Order Summary */}
       {usersWithOrders.length > 0 && (
-        <div className="card mb-3" style={{ background: '#FFF3E0' }}>
+        <div className="card mb-3" style={{ background: 'var(--color-tint-primary)' }}>
           <p className="text-sm font-bold mb-2">訂單總覽</p>
           {usersWithOrders.map((sel, i) => {
             const userIdx = selections.indexOf(sel);
@@ -397,7 +397,7 @@ export default function ConfirmPage() {
               fontSize: 13, padding: '8px 4px',
               background: discountType === 'none' ? 'var(--color-primary)' : 'var(--color-bg-input)',
               color: discountType === 'none' ? 'white' : 'var(--color-text)',
-              border: discountType === 'none' ? 'none' : '1px solid #E0E0E0',
+              border: discountType === 'none' ? 'none' : '1px solid var(--color-border)',
             }}
           >無折扣</button>
           <button
@@ -407,7 +407,7 @@ export default function ConfirmPage() {
               fontSize: 13, padding: '8px 4px',
               background: discountType === 'percent' ? 'var(--color-primary)' : 'var(--color-bg-input)',
               color: discountType === 'percent' ? 'white' : 'var(--color-text)',
-              border: discountType === 'percent' ? 'none' : '1px solid #E0E0E0',
+              border: discountType === 'percent' ? 'none' : '1px solid var(--color-border)',
             }}
           >打X折</button>
           <button
@@ -417,7 +417,7 @@ export default function ConfirmPage() {
               fontSize: 13, padding: '8px 4px',
               background: discountType === 'amount' ? 'var(--color-primary)' : 'var(--color-bg-input)',
               color: discountType === 'amount' ? 'white' : 'var(--color-text)',
-              border: discountType === 'amount' ? 'none' : '1px solid #E0E0E0',
+              border: discountType === 'amount' ? 'none' : '1px solid var(--color-border)',
             }}
           >折 $X</button>
         </div>
@@ -440,7 +440,7 @@ export default function ConfirmPage() {
       </div>
 
       {error && (
-        <div className="card mb-4 border-l-4" style={{ borderColor: 'var(--color-danger)', background: '#FFF5F5' }}>
+        <div className="card mb-4 border-l-4" style={{ borderColor: 'var(--color-danger)', background: 'var(--color-tint-danger)' }}>
           <p className="text-sm" style={{ color: 'var(--color-danger)' }}>{error}</p>
         </div>
       )}

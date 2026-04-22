@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  /* Primary Colors - lunch/food theme (warm orange) */
-  --color-primary: #FF8C42;
-  --color-primary-light: #FFA96B;
-  --color-primary-dark: #E07030;
+  /* Primary Colors - lunch/food theme (soft warm orange) */
+  --color-primary: #F4A261;
+  --color-primary-light: #F7BD8A;
+  --color-primary-dark: #D98544;
 
   /* Background */
   --color-bg: #FFF8F2;
@@ -16,10 +16,20 @@
   --color-text-secondary: #666666;
   --color-text-muted: #999999;
 
+  /* Borders (for inputs, dividers, subtle outlines) */
+  --color-border: #E0E0E0;
+  --color-border-subtle: #F0F0F0;
+
   /* Status */
   --color-success: #4CAF50;
   --color-warning: #FF9800;
   --color-danger: #F44336;
+
+  /* Tinted card backgrounds (for notes / danger-zone / warning cards).
+     These adapt to light/dark automatically. */
+  --color-tint-primary: #FFF3E0;
+  --color-tint-warning: #FFF8E1;
+  --color-tint-danger: #FFF5F5;
 
   /* Balance */
   --color-balance-positive: #4CAF50;
@@ -43,6 +53,29 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Dark mode — applied when .dark class is on <html>. Keeps primary color
+   (which the user picks in skin settings) and only swaps neutrals. */
+html.dark {
+  --color-bg: #121214;
+  --color-bg-card: #1E1E22;
+  --color-bg-input: #2A2A2E;
+
+  --color-text: #EDEDEE;
+  --color-text-secondary: #B8B8BA;
+  --color-text-muted: #808085;
+
+  --color-border: #3A3A3F;
+  --color-border-subtle: #2A2A2E;
+
+  --color-tint-primary: #2E2318;
+  --color-tint-warning: #2D2A18;
+  --color-tint-danger: #2D1A1A;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {
@@ -134,7 +167,7 @@ body {
 .input {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
-  border: 1.5px solid #E0E0E0;
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
   font-size: 14px;
   background: var(--color-bg-input);
@@ -163,8 +196,8 @@ body {
   transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  background: white;
-  border-top: 1px solid #EEEEEE;
+  background: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: space-around;
   padding: var(--spacing-sm) 0;
@@ -202,7 +235,7 @@ body {
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: #EEEEEE;
+  background: var(--color-border-subtle);
   border-radius: var(--radius-full);
   overflow: hidden;
 }

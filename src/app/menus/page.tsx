@@ -234,7 +234,7 @@ export default function MenusPage() {
                         ref={el => { itemRefs.current[idx] = el; }}
                         className="flex gap-2 items-center"
                         style={{
-                          background: isDragging ? '#FFE0B2' : isDragOver ? '#FFF3E0' : 'var(--color-bg)',
+                          background: isDragging ? 'var(--color-tint-warning)' : isDragOver ? 'var(--color-tint-primary)' : 'var(--color-bg)',
                           borderRadius: 8,
                           padding: '8px 8px',
                           opacity: isDragging ? 0.7 : 1,

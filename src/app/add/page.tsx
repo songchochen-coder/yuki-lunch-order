@@ -175,10 +175,10 @@ export default function AddPage() {
       </div>
 
       <div className="flex gap-2 mb-4">
-        <button className="btn flex-1" onClick={() => { setMode('menu'); resetForm(); }} style={{ background: mode === 'menu' ? 'var(--color-primary)' : 'var(--color-bg-input)', color: mode === 'menu' ? 'white' : 'var(--color-text)', border: mode === 'menu' ? 'none' : '1px solid #E0E0E0' }}>
+        <button className="btn flex-1" onClick={() => { setMode('menu'); resetForm(); }} style={{ background: mode === 'menu' ? 'var(--color-primary)' : 'var(--color-bg-input)', color: mode === 'menu' ? 'white' : 'var(--color-text)', border: mode === 'menu' ? 'none' : '1px solid var(--color-border)' }}>
           📖 從菜單庫選
         </button>
-        <button className="btn flex-1" onClick={() => { setMode('manual'); resetForm(); }} style={{ background: mode === 'manual' ? 'var(--color-primary)' : 'var(--color-bg-input)', color: mode === 'manual' ? 'white' : 'var(--color-text)', border: mode === 'manual' ? 'none' : '1px solid #E0E0E0' }}>
+        <button className="btn flex-1" onClick={() => { setMode('manual'); resetForm(); }} style={{ background: mode === 'manual' ? 'var(--color-primary)' : 'var(--color-bg-input)', color: mode === 'manual' ? 'white' : 'var(--color-text)', border: mode === 'manual' ? 'none' : '1px solid var(--color-border)' }}>
           ✏️ 手動輸入
         </button>
       </div>
@@ -219,7 +219,7 @@ export default function AddPage() {
               {selectedItems.map((item, idx) => (
                 <div key={idx} className="card" style={{ padding: '10px var(--spacing-md)' }}>
                   <div className="flex items-center gap-3">
-                    <button onClick={() => toggleItem(idx)} style={{ width: 24, height: 24, borderRadius: 6, border: item.quantity > 0 ? 'none' : '2px solid #CCC', background: item.quantity > 0 ? 'var(--color-primary)' : 'transparent', color: 'white', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <button onClick={() => toggleItem(idx)} style={{ width: 24, height: 24, borderRadius: 6, border: item.quantity > 0 ? 'none' : '2px solid var(--color-border)', background: item.quantity > 0 ? 'var(--color-primary)' : 'transparent', color: 'white', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {item.quantity > 0 ? '✓' : ''}
                     </button>
                     <div className="flex-1">
@@ -248,7 +248,7 @@ export default function AddPage() {
               ))}
             </div>
             {menuTotal > 0 && (
-              <div className="card" style={{ background: '#FFF3E0' }}>
+              <div className="card" style={{ background: 'var(--color-tint-primary)' }}>
                 <p className="text-sm font-bold">小計: ${menuTotal.toLocaleString()}</p>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{pickedItems.map(i => `${i.name}x${i.quantity}${i.note ? `(${i.note})` : ''}`).join(', ')}</p>
               </div>
@@ -292,7 +292,7 @@ export default function AddPage() {
                     if (selected) { const f = selectedUsers.filter(x => x !== u); setSelectedUsers(f.length > 0 ? f : [u]); }
                     else { setSelectedUsers([...selectedUsers, u]); }
                   }
-                }} style={{ flex: 1, fontSize: 14, padding: '10px 4px', background: selected ? (isSplit ? 'var(--color-success)' : 'var(--color-primary)') : 'var(--color-bg-input)', color: selected ? 'white' : 'var(--color-text)', border: selected ? 'none' : '1px solid #E0E0E0' }}>
+                }} style={{ flex: 1, fontSize: 14, padding: '10px 4px', background: selected ? (isSplit ? 'var(--color-success)' : 'var(--color-primary)') : 'var(--color-bg-input)', color: selected ? 'white' : 'var(--color-text)', border: selected ? 'none' : '1px solid var(--color-border)' }}>
                   {u}{selected && isSplit && ' ✓'}
                 </button>
               );

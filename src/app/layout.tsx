@@ -16,7 +16,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#FF8C42",
+  themeColor: "#F4A261",
 };
 
 export default function RootLayout({
@@ -40,19 +40,24 @@ export default function RootLayout({
                 try {
                   var s = JSON.parse(localStorage.getItem('lunch-skin') || '{}');
                   var presets = {
+                    '#F4A261': '#D98544', '#7CA4CF': '#5F86B0', '#94B49F': '#769681',
+                    '#E8A5A5': '#C88585', '#B79EC7': '#9680AE', '#8FBCBB': '#6FA09F',
+                    '#C9847E': '#AA6964', '#6B7280': '#4B5563',
+                    // Legacy mappings for users who had the old saturated palette
                     '#FF8C42': '#E07030', '#5B8FF9': '#4A76D6', '#52C41A': '#3FA00D',
                     '#EB5C9F': '#D44583', '#845EC2': '#6B47A0', '#14B8A6': '#0E948A',
                     '#E53935': '#C1272D', '#4B5563': '#374151'
                   };
+                  var r = document.documentElement;
                   if (s.primaryColor) {
-                    document.documentElement.style.setProperty('--color-primary', s.primaryColor);
+                    r.style.setProperty('--color-primary', s.primaryColor);
                     var dark = presets[s.primaryColor.toUpperCase()] || s.primaryColor;
-                    document.documentElement.style.setProperty('--color-primary-dark', dark);
+                    r.style.setProperty('--color-primary-dark', dark);
                     var meta = document.querySelector('meta[name="theme-color"]');
                     if (meta) meta.setAttribute('content', s.primaryColor);
                   }
+                  if (s.colorScheme === 'dark') r.classList.add('dark');
                   if (s.wallpaper) {
-                    var r = document.documentElement;
                     r.style.backgroundImage = 'url("' + s.wallpaper + '")';
                     r.style.backgroundSize = 'cover';
                     r.style.backgroundPosition = 'center center';

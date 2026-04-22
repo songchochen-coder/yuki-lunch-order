@@ -3,26 +3,31 @@
 
 const STORAGE_KEY = 'lunch-skin';
 
+export type ColorScheme = 'light' | 'dark';
+
 export interface AppSkin {
   primaryColor: string;   // hex, e.g. "#FF8C42"
   wallpaper: string | null; // relative path like "/wallpapers/wp-01.jpg", or null for none
+  colorScheme: ColorScheme;
 }
 
 export const DEFAULT_SKIN: AppSkin = {
-  primaryColor: '#FF8C42',
+  primaryColor: '#F4A261',
   wallpaper: null,
+  colorScheme: 'light',
 };
 
-// Color presets shown in the settings picker. Names are display-only.
+// Color presets shown in the settings picker. Softer / Morandi-inspired
+// palette — easier on the eyes and blends with pastel wallpapers.
 export const COLOR_PRESETS: { name: string; value: string; dark: string }[] = [
-  { name: '橘色',   value: '#FF8C42', dark: '#E07030' },
-  { name: '藍色',   value: '#5B8FF9', dark: '#4A76D6' },
-  { name: '綠色',   value: '#52C41A', dark: '#3FA00D' },
-  { name: '粉紅',   value: '#EB5C9F', dark: '#D44583' },
-  { name: '紫色',   value: '#845EC2', dark: '#6B47A0' },
-  { name: '青綠',   value: '#14B8A6', dark: '#0E948A' },
-  { name: '深紅',   value: '#E53935', dark: '#C1272D' },
-  { name: '深灰',   value: '#4B5563', dark: '#374151' },
+  { name: '暖橘',     value: '#F4A261', dark: '#D98544' },
+  { name: '霧藍',     value: '#7CA4CF', dark: '#5F86B0' },
+  { name: '抹茶',     value: '#94B49F', dark: '#769681' },
+  { name: '蜜桃',     value: '#E8A5A5', dark: '#C88585' },
+  { name: '藕紫',     value: '#B79EC7', dark: '#9680AE' },
+  { name: '薄荷',     value: '#8FBCBB', dark: '#6FA09F' },
+  { name: '乾燥玫瑰', value: '#C9847E', dark: '#AA6964' },
+  { name: '石墨',     value: '#6B7280', dark: '#4B5563' },
 ];
 
 // Wallpaper presets. Thumbnails are the same file (they're already ≤128KB after
@@ -55,14 +60,13 @@ export function saveSkin(skin: AppSkin): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(skin));
 }
 
-// Apply a skin to the DOM immediately. Sets CSS variables for color and toggles
-// the wallpaper on the <html> element (wallpaper goes behind the 480px-wide
-// body so desktop users see it fill the viewport margins too).
+// Apply a skin to the DOM immediately. Sets CSS variables for color, toggles
+// dark mode via the `.dark` class on <html>, and optionally installs the
+// wallpaper (on <html>, so it fills the viewport even on desktop where body
+// is a 480 px centered column).
 export function applySkin(skin: AppSkin): void {
   if (typeof document === 'undefined') return;
 
-  // Primary color + its "dark" (hover) variant. Look up the paired dark shade
-  // from the preset list; fall back to the color itself when it's custom.
   const preset = COLOR_PRESETS.find(p => p.value.toLowerCase() === skin.primaryColor.toLowerCase());
   const dark = preset?.dark ?? skin.primaryColor;
 
@@ -70,12 +74,18 @@ export function applySkin(skin: AppSkin): void {
   root.style.setProperty('--color-primary', skin.primaryColor);
   root.style.setProperty('--color-primary-dark', dark);
 
-  // Keep the browser chrome color (Safari/Chrome mobile top bar) in sync.
+  // Dark mode toggle
+  if (skin.colorScheme === 'dark') {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
+  }
+
+  // Browser chrome color (Safari/Chrome mobile top bar).
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta) themeMeta.setAttribute('content', skin.primaryColor);
 
-  // Wallpaper on <html>, not body, so it fills viewport on desktop too.
-  // Body background must become transparent to let the wallpaper through.
+  // Wallpaper on <html> so it fills viewport.
   if (skin.wallpaper) {
     root.style.backgroundImage = `url("${skin.wallpaper}")`;
     root.style.backgroundSize = 'cover';

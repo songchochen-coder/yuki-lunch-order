@@ -309,9 +309,9 @@ export default function WeeklyPlanPage() {
                             style={{
                               minWidth: 0, flex: '1 0 auto', fontSize: 12, padding: '6px 10px',
                               flexDirection: 'column', gap: 2,
-                              background: activeUserIdx === uIdx ? 'var(--color-primary)' : hasItems ? '#FFF3E0' : 'var(--color-bg-input)',
+                              background: activeUserIdx === uIdx ? 'var(--color-primary)' : hasItems ? 'var(--color-tint-primary)' : 'var(--color-bg-input)',
                               color: activeUserIdx === uIdx ? 'white' : 'var(--color-text)',
-                              border: activeUserIdx === uIdx ? 'none' : hasItems ? '2px solid var(--color-primary)' : '1px solid #E0E0E0',
+                              border: activeUserIdx === uIdx ? 'none' : hasItems ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
                             }}
                           >
                             <span>{sel.name}</span>
@@ -334,7 +334,7 @@ export default function WeeklyPlanPage() {
                             className="flex items-center gap-3"
                             style={{
                               padding: '8px 10px', borderRadius: 8,
-                              background: selected ? '#FFF3E0' : 'var(--color-bg)',
+                              background: selected ? 'var(--color-tint-primary)' : 'var(--color-bg)',
                               border: selected ? '2px solid var(--color-primary)' : '1px solid #EEE',
                             }}
                           >
@@ -342,7 +342,7 @@ export default function WeeklyPlanPage() {
                               onClick={() => toggleUserItem(dayIdx, activeUserIdx, itemIdx)}
                               style={{
                                 width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                                border: selected ? 'none' : '2px solid #CCC',
+                                border: selected ? 'none' : '2px solid var(--color-border)',
                                 background: selected ? 'var(--color-primary)' : 'transparent',
                                 color: 'white', fontSize: 13, cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -375,7 +375,7 @@ export default function WeeklyPlanPage() {
 
       {/* Summary */}
       {totalOrderCount > 0 && (
-        <div className="card mb-4" style={{ background: '#FFF3E0' }}>
+        <div className="card mb-4" style={{ background: 'var(--color-tint-primary)' }}>
           <p className="text-sm font-bold">預排總覽</p>
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
             共 {plans.length} 天 / {totalOrderCount} 筆訂單 / 總計 ${grandTotal.toLocaleString()}

@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0]);
   const [depositMode, setDepositMode] = useState<'add' | 'deduct'>('add');
-  const [skin, setSkinState] = useState<AppSkin>({ primaryColor: '#FF8C42', wallpaper: null });
+  const [skin, setSkinState] = useState<AppSkin>({ primaryColor: '#F4A261', wallpaper: null, colorScheme: 'light' });
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -158,7 +158,7 @@ export default function SettingsPage() {
                         ? 'var(--color-danger)'
                         : 'var(--color-warning)';
                       return (
-                        <div key={tx.id} className="flex justify-between text-xs py-1" style={{ borderBottom: '1px solid #F0F0F0' }}>
+                        <div key={tx.id} className="flex justify-between text-xs py-1" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
                           <div className="flex-1">
                             <span className="font-semibold" style={{ color }}>
                               {sign}{isCash ? ' ' : ''}${tx.amount}
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                   fontSize: 14, padding: '8px 4px',
                   background: depositMode === 'add' ? 'var(--color-success)' : 'var(--color-bg-input)',
                   color: depositMode === 'add' ? 'white' : 'var(--color-text)',
-                  border: depositMode === 'add' ? 'none' : '1px solid #E0E0E0',
+                  border: depositMode === 'add' ? 'none' : '1px solid var(--color-border)',
                 }}
               >＋ 儲值</button>
               <button
@@ -216,7 +216,7 @@ export default function SettingsPage() {
                   fontSize: 14, padding: '8px 4px',
                   background: depositMode === 'deduct' ? 'var(--color-danger)' : 'var(--color-bg-input)',
                   color: depositMode === 'deduct' ? 'white' : 'var(--color-text)',
-                  border: depositMode === 'deduct' ? 'none' : '1px solid #E0E0E0',
+                  border: depositMode === 'deduct' ? 'none' : '1px solid var(--color-border)',
                 }}
               >－ 扣回</button>
             </div>
@@ -238,7 +238,7 @@ export default function SettingsPage() {
                     fontSize: 14, padding: '8px 4px',
                     background: depositUser === m.name ? 'var(--color-primary)' : 'var(--color-bg-input)',
                     color: depositUser === m.name ? 'white' : 'var(--color-text)',
-                    border: depositUser === m.name ? 'none' : '1px solid #E0E0E0',
+                    border: depositUser === m.name ? 'none' : '1px solid var(--color-border)',
                   }}
                 >
                   {m.name}
@@ -258,7 +258,7 @@ export default function SettingsPage() {
                     fontSize: 14, padding: '8px 4px',
                     background: depositAmount === amt ? (depositMode === 'add' ? 'var(--color-success)' : 'var(--color-danger)') : 'var(--color-bg-input)',
                     color: depositAmount === amt ? 'white' : 'var(--color-text)',
-                    border: depositAmount === amt ? 'none' : '1px solid #E0E0E0',
+                    border: depositAmount === amt ? 'none' : '1px solid var(--color-border)',
                   }}
                 >
                   ${amt}
@@ -331,6 +331,31 @@ export default function SettingsPage() {
         <p className="text-sm font-semibold mb-3">🎨 主題設定</p>
 
         <div className="mb-4">
+          <label className="input-label">顯示模式</label>
+          <div className="flex gap-2">
+            {([
+              { key: 'light', label: '☀️ 淺色', color: '#FFF8F2' },
+              { key: 'dark',  label: '🌙 深色', color: '#1E1E22' },
+            ] as const).map(opt => {
+              const active = skin.colorScheme === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => updateSkin({ colorScheme: opt.key })}
+                  className="btn flex-1"
+                  style={{
+                    fontSize: 14, padding: '10px 4px',
+                    background: active ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                    color: active ? 'white' : 'var(--color-text)',
+                    border: active ? 'none' : '1px solid var(--color-border)',
+                  }}
+                >{opt.label}</button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mb-4">
           <label className="input-label">主色調</label>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {COLOR_PRESETS.map(preset => {
@@ -344,7 +369,7 @@ export default function SettingsPage() {
                     width: 36, height: 36, borderRadius: '50%',
                     background: preset.value,
                     border: active ? '3px solid #1A1A1A' : '2px solid #FFF',
-                    boxShadow: active ? '0 0 0 2px ' + preset.value : '0 0 0 1px #E0E0E0',
+                    boxShadow: active ? '0 0 0 2px ' + preset.value : '0 0 0 1px var(--color-border)',
                     cursor: 'pointer', padding: 0,
                   }}
                 />
@@ -365,7 +390,7 @@ export default function SettingsPage() {
               style={{
                 height: 72, borderRadius: 8,
                 background: 'var(--color-bg-input)',
-                border: skin.wallpaper === null ? '3px solid var(--color-primary)' : '1px solid #E0E0E0',
+                border: skin.wallpaper === null ? '3px solid var(--color-primary)' : '1px solid var(--color-border)',
                 fontSize: 12, color: 'var(--color-text-secondary)',
                 cursor: 'pointer',
               }}
@@ -382,7 +407,7 @@ export default function SettingsPage() {
                     backgroundImage: `url("${wp}")`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    border: active ? '3px solid var(--color-primary)' : '1px solid #E0E0E0',
+                    border: active ? '3px solid var(--color-primary)' : '1px solid var(--color-border)',
                     cursor: 'pointer', padding: 0,
                   }}
                 />
@@ -403,7 +428,7 @@ export default function SettingsPage() {
         <div className="flex flex-col gap-2">
           <button
             className="btn btn-block"
-            style={{ background: '#FFF3E0', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
+            style={{ background: 'var(--color-tint-primary)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
             onClick={() => {
               if (!confirm('確定要清空所有點餐紀錄嗎？\n（成員和儲值金不受影響）')) return;
               localStorage.removeItem('lunch-orders');
@@ -414,7 +439,7 @@ export default function SettingsPage() {
           </button>
           <button
             className="btn btn-block"
-            style={{ background: '#FFF3E0', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
+            style={{ background: 'var(--color-tint-primary)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
             onClick={() => {
               if (!confirm('確定要清空菜單庫嗎？')) return;
               localStorage.removeItem('lunch-menus');
@@ -425,7 +450,7 @@ export default function SettingsPage() {
           </button>
           <button
             className="btn btn-block"
-            style={{ background: '#FFF3E0', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
+            style={{ background: 'var(--color-tint-primary)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 13 }}
             onClick={() => {
               if (!confirm('確定要清空儲值交易紀錄嗎？\n（餘額不受影響）')) return;
               localStorage.removeItem('lunch-transactions');
@@ -436,7 +461,7 @@ export default function SettingsPage() {
           </button>
           <button
             className="btn btn-block"
-            style={{ background: '#FFF5F5', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', fontSize: 13, marginTop: 8 }}
+            style={{ background: 'var(--color-tint-danger)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', fontSize: 13, marginTop: 8 }}
             onClick={() => {
               if (!confirm('⚠️ 確定要清空所有資料嗎？\n\n包含：\n- 所有點餐紀錄\n- 菜單庫\n- 成員與儲值金\n- 交易紀錄\n\n此操作無法復原！')) return;
               if (!confirm('再次確認：真的要全部清除嗎？')) return;

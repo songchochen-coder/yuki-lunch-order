@@ -122,7 +122,7 @@ export default function ScanPage() {
       )}
 
       {error && (
-        <div className="card mt-4 border-l-4 border-[var(--color-danger)]" style={{ background: '#FFF5F5' }}>
+        <div className="card mt-4 border-l-4 border-[var(--color-danger)]" style={{ background: 'var(--color-tint-danger)' }}>
           <p className="text-sm" style={{ color: 'var(--color-danger)' }}>{error}</p>
           <button onClick={() => setError('')} className="btn btn-ghost text-xs mt-2">關閉</button>
         </div>

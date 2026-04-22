@@ -223,7 +223,7 @@ export default function StatsPage() {
           style={{
             background: tab === 'order' ? 'var(--color-primary)' : 'var(--color-bg-input)',
             color: tab === 'order' ? 'white' : 'var(--color-text)',
-            border: tab === 'order' ? 'none' : '1px solid #E0E0E0',
+            border: tab === 'order' ? 'none' : '1px solid var(--color-border)',
           }}
         >
           📞 商家訂單
@@ -234,7 +234,7 @@ export default function StatsPage() {
           style={{
             background: tab === 'overview' ? 'var(--color-primary)' : 'var(--color-bg-input)',
             color: tab === 'overview' ? 'white' : 'var(--color-text)',
-            border: tab === 'overview' ? 'none' : '1px solid #E0E0E0',
+            border: tab === 'overview' ? 'none' : '1px solid var(--color-border)',
           }}
         >
           📈 總覽
@@ -274,7 +274,7 @@ export default function StatsPage() {
 
           {/* Day Summary */}
           {dayOrders.length > 0 && (
-            <div className="card mb-4" style={{ background: '#FFF3E0' }}>
+            <div className="card mb-4" style={{ background: 'var(--color-tint-primary)' }}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>當日訂單</p>
@@ -362,7 +362,7 @@ export default function StatsPage() {
                               fontSize: 12, padding: '6px 4px',
                               background: discountType === 'percent' ? 'var(--color-primary)' : 'white',
                               color: discountType === 'percent' ? 'white' : 'var(--color-text)',
-                              border: discountType === 'percent' ? 'none' : '1px solid #E0E0E0',
+                              border: discountType === 'percent' ? 'none' : '1px solid var(--color-border)',
                             }}
                           >打 X 折</button>
                           <button
@@ -372,7 +372,7 @@ export default function StatsPage() {
                               fontSize: 12, padding: '6px 4px',
                               background: discountType === 'amount' ? 'var(--color-primary)' : 'white',
                               color: discountType === 'amount' ? 'white' : 'var(--color-text)',
-                              border: discountType === 'amount' ? 'none' : '1px solid #E0E0E0',
+                              border: discountType === 'amount' ? 'none' : '1px solid var(--color-border)',
                             }}
                           >每人折 $X</button>
                         </div>
@@ -395,7 +395,7 @@ export default function StatsPage() {
                             <button
                               className="btn flex-1"
                               onClick={() => clearDiscountGroup(name)}
-                              style={{ fontSize: 13, padding: '8px', background: '#FFF5F5', color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}
+                              style={{ fontSize: 13, padding: '8px', background: 'var(--color-tint-danger)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}
                             >清除折扣</button>
                           )}
                           <button
@@ -449,7 +449,7 @@ export default function StatsPage() {
                           return (
                             <div key={ui.id || i}>
                               <SwipeToDelete onDelete={() => handleDeleteOrder(ui.id)}>
-                                <div className="flex items-center justify-between text-xs" style={{ padding: '6px 10px', background: isUnpaid ? '#FFF8E1' : 'white', borderRadius: 6 }}>
+                                <div className="flex items-center justify-between text-xs" style={{ padding: '6px 10px', background: isUnpaid ? 'var(--color-tint-warning)' : 'white', borderRadius: 6 }}>
                                   <div className="flex-1">
                                     <span className="font-semibold">{ui.user}</span>
                                     <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>{ui.items}</span>
@@ -486,7 +486,7 @@ export default function StatsPage() {
                                     <button
                                       className="btn"
                                       onClick={(e) => { e.stopPropagation(); isEditingAmount ? closeAmountEdit() : openAmountEdit(ui.id, ui.amount); }}
-                                      style={{ fontSize: 11, padding: '2px 6px', background: 'transparent', border: '1px solid #E0E0E0', color: 'var(--color-text)' }}
+                                      style={{ fontSize: 11, padding: '2px 6px', background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
                                       title="手動改金額（不折扣品項）"
                                     >✎</button>
                                     {isUnpaid && (
@@ -558,7 +558,7 @@ export default function StatsPage() {
               style={{
                 background: period === 'week' ? 'var(--color-primary)' : 'var(--color-bg-input)',
                 color: period === 'week' ? 'white' : 'var(--color-text)',
-                border: period === 'week' ? 'none' : '1px solid #E0E0E0',
+                border: period === 'week' ? 'none' : '1px solid var(--color-border)',
               }}
             >
               本週
@@ -569,7 +569,7 @@ export default function StatsPage() {
               style={{
                 background: period === 'month' ? 'var(--color-primary)' : 'var(--color-bg-input)',
                 color: period === 'month' ? 'white' : 'var(--color-text)',
-                border: period === 'month' ? 'none' : '1px solid #E0E0E0',
+                border: period === 'month' ? 'none' : '1px solid var(--color-border)',
               }}
             >
               本月

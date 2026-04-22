@@ -139,7 +139,7 @@ export default function HistoryPage() {
           </div>
         )}
         {weekUnpaid > 0 && (
-          <div className="mt-2 pt-2" style={{ borderTop: '1px solid #F0F0F0' }}>
+          <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
             <span className="text-xs" style={{ color: 'var(--color-warning)', fontWeight: 600 }}>
               ⏳ 本週待收現金：${weekUnpaid.toLocaleString()}
             </span>
@@ -219,7 +219,7 @@ export default function HistoryPage() {
                               style={{
                                 fontSize: 11, padding: '3px 8px',
                                 background: 'transparent', color: 'var(--color-text)',
-                                border: '1px solid #E0E0E0',
+                                border: '1px solid var(--color-border)',
                               }}
                               title="編輯訂單"
                             >✎</button>
@@ -328,7 +328,7 @@ function EditOrderModal({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: 'white', width: '100%', maxWidth: 480,
+          background: 'var(--color-bg-card)', width: '100%', maxWidth: 480,
           borderRadius: '16px 16px 0 0', padding: 20,
           maxHeight: '90vh', overflowY: 'auto',
         }}
@@ -356,7 +356,7 @@ function EditOrderModal({
                     flex: '1 1 80px', fontSize: 13, padding: '8px 4px',
                     background: user === m.name ? 'var(--color-primary)' : 'var(--color-bg-input)',
                     color: user === m.name ? 'white' : 'var(--color-text)',
-                    border: user === m.name ? 'none' : '1px solid #E0E0E0',
+                    border: user === m.name ? 'none' : '1px solid var(--color-border)',
                   }}
                 >{m.name}</button>
               ))}
@@ -394,7 +394,7 @@ function EditOrderModal({
           {method === 'balance' && (userChanged || amountChanged) && (
             <div style={{
               padding: 10, borderRadius: 8,
-              background: willGoUnpaid ? '#FFF8E1' : '#E8F5E9',
+              background: willGoUnpaid ? 'var(--color-tint-warning)' : '#E8F5E9',
               fontSize: 12,
               color: willGoUnpaid ? 'var(--color-warning)' : 'var(--color-success)',
             }}>

@@ -137,7 +137,7 @@ export default function Home() {
             })}
           </div>
           {Object.values(unpaidTotals).some(v => v > 0) && (
-            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0F0F0' }}>
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 💡 點右側「收款」按鈕一次銷掉該員所有未付款訂單
               </p>
