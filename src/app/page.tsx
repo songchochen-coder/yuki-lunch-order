@@ -146,9 +146,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* Home action shortcuts: icons float directly over the wallpaper with
-          no button chrome. Text has a subtle shadow to stay readable on any
-          background without fighting the wallpaper visually. */}
+      {/* Home action shortcuts: icon inside a circular frame with primary-color
+          border (matches the current skin), label below. The semi-opaque white
+          fill keeps the icon readable over any wallpaper. */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         {[
           { href: '/add',         img: '/snoopy/food-hero.png', label: '點餐' },
@@ -161,18 +161,33 @@ export default function Home() {
             href={a.href}
             className="flex flex-col items-center justify-center"
             style={{
-              gap: 6, padding: '16px 8px',
+              gap: 8, padding: '10px 8px',
               textDecoration: 'none',
               color: 'var(--color-text)',
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={a.img} alt="" style={{ width: 64, height: 64, objectFit: 'contain' }} />
+            <div
+              style={{
+                width: 84,
+                height: 84,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.92)',
+                border: '2.5px solid var(--color-primary)',
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={a.img} alt="" style={{ width: 60, height: 60, objectFit: 'contain' }} />
+            </div>
             <span
               className="text-xs"
               style={{
                 fontWeight: 600,
-                textShadow: '0 1px 2px rgba(255,255,255,0.9), 0 0 8px rgba(255,255,255,0.6)',
+                textShadow: '0 1px 2px rgba(255,255,255,0.9), 0 0 6px rgba(255,255,255,0.7)',
               }}
             >{a.label}</span>
           </Link>
