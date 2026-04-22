@@ -133,9 +133,30 @@ export default function MenusPage() {
 
   return (
     <div className="page-container">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <button className="btn btn-ghost" onClick={() => router.back()} style={{ fontSize: 20, padding: '4px 8px' }}>←</button>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>📖 菜單庫</h1>
+      </div>
+
+      {/* Hero cover illustration — sets the mood for the menu library page */}
+      <div
+        style={{
+          marginBottom: 16,
+          borderRadius: 'var(--radius-md)',
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/snoopy/menu-cover.jpg"
+          alt=""
+          style={{
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+          }}
+        />
       </div>
 
       {loading ? (
