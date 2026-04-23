@@ -4,39 +4,89 @@ import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
 import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod, todayStr, toLocalDateStr } from '@/lib/types';
-import { getOrdersByWeek, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, editOrder as dbEditOrder, getMembers } from '@/lib/client-db';
+import { getOrders, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, editOrder as dbEditOrder, getMembers } from '@/lib/client-db';
 
 export default function HistoryPage() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
-  const [weekOffset, setWeekOffset] = useState(0);
   const [toast, setToast] = useState('');
   const [editingOrder, setEditingOrder] = useState<LunchOrder | null>(null);
 
-  const today = todayStr();
-  const baseDate = new Date(today + 'T00:00:00');
-  baseDate.setDate(baseDate.getDate() + weekOffset * 7);
-  const currentDate = toLocalDateStr(baseDate);
-  const weekStart = getWeekStart(currentDate);
-  const weekDates = getWeekDates(currentDate);
+  // Filters
+  const [selectedMember, setSelectedMember] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<string>(() => getWeekStart(todayStr()));
+  const [dateTo, setDateTo] = useState<string>(() => getWeekDates(todayStr())[4]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2000);
   }, []);
 
+  const loadOrders = useCallback(() => {
+    const all = getOrders();
+    const filtered = all.filter(o => {
+      if (o.date < dateFrom || o.date > dateTo) return false;
+      if (selectedMember !== 'all' && o.user !== selectedMember) return false;
+      return true;
+    });
+    setOrders(filtered);
+  }, [dateFrom, dateTo, selectedMember]);
+
   useEffect(() => {
     setLoading(true);
-    setOrders(getOrdersByWeek(weekStart));
+    loadOrders();
     setMembers(getMembers());
     setLoading(false);
-  }, [weekStart]);
+  }, [loadOrders]);
 
   function refresh() {
-    setOrders(getOrdersByWeek(weekStart));
+    loadOrders();
     setMembers(getMembers());
   }
+
+  // ── Quick range presets ──
+  function applyThisWeek() {
+    const t = todayStr();
+    setDateFrom(getWeekStart(t));
+    setDateTo(getWeekDates(t)[4]);
+  }
+  function applyLastWeek() {
+    const t = todayStr();
+    const lastMon = new Date(getWeekStart(t) + 'T00:00:00');
+    lastMon.setDate(lastMon.getDate() - 7);
+    const lastFri = new Date(lastMon);
+    lastFri.setDate(lastFri.getDate() + 4);
+    setDateFrom(toLocalDateStr(lastMon));
+    setDateTo(toLocalDateStr(lastFri));
+  }
+  function applyThisMonth() {
+    const t = todayStr();
+    const [y, m] = t.split('-');
+    const lastDay = new Date(Number(y), Number(m), 0).getDate();
+    setDateFrom(`${y}-${m}-01`);
+    setDateTo(`${y}-${m}-${String(lastDay).padStart(2, '0')}`);
+  }
+
+  // Preset detection for highlighting the active preset button
+  const preset = (() => {
+    const t = todayStr();
+    const thisWeekStart = getWeekStart(t);
+    const thisWeekEnd = getWeekDates(t)[4];
+    if (dateFrom === thisWeekStart && dateTo === thisWeekEnd) return 'this-week';
+
+    const lastMon = new Date(thisWeekStart + 'T00:00:00');
+    lastMon.setDate(lastMon.getDate() - 7);
+    const lastFri = new Date(lastMon);
+    lastFri.setDate(lastFri.getDate() + 4);
+    if (dateFrom === toLocalDateStr(lastMon) && dateTo === toLocalDateStr(lastFri)) return 'last-week';
+
+    const [y, m] = t.split('-');
+    const lastDay = new Date(Number(y), Number(m), 0).getDate();
+    if (dateFrom === `${y}-${m}-01` && dateTo === `${y}-${m}-${String(lastDay).padStart(2, '0')}`) return 'this-month';
+
+    return 'custom';
+  })();
 
   function handleSaveEdit(changes: {
     date: string;
@@ -57,8 +107,14 @@ export default function HistoryPage() {
     }
   }
 
-  const weekTotal = orders.reduce((sum, o) => sum + o.totalAmount, 0);
-  const weekUnpaid = orders.filter(o => getPaymentMethod(o) === 'unpaid').reduce((s, o) => s + o.totalAmount, 0);
+  const rangeTotal = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+
+  // Breakdown by payment method (for summary pill + formatted text)
+  const byMethod = { balance: 0, cash: 0, unpaid: 0 };
+  for (const o of orders) {
+    const m = getPaymentMethod(o);
+    byMethod[m] += o.totalAmount;
+  }
 
   const userTotals: Record<string, number> = {};
   for (const o of orders) {
@@ -69,6 +125,85 @@ export default function HistoryPage() {
   for (const o of orders) {
     if (!ordersByDate[o.date]) ordersByDate[o.date] = [];
     ordersByDate[o.date].push(o);
+  }
+
+  // All dates in [dateFrom, dateTo] inclusive, for iteration of day groups
+  const datesInRange = (() => {
+    const result: string[] = [];
+    const start = new Date(dateFrom + 'T00:00:00');
+    const end = new Date(dateTo + 'T00:00:00');
+    if (start > end) return result;
+    const cur = new Date(start);
+    while (cur <= end) {
+      result.push(toLocalDateStr(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return result;
+  })();
+
+  // ── Copy / share: format the current filtered view as plain text ──
+  function formatDetailText(): string {
+    const memberLabel = selectedMember === 'all' ? '全體' : selectedMember;
+    const rangeLabel = dateFrom === dateTo
+      ? formatDate(dateFrom)
+      : `${formatDate(dateFrom)} ~ ${formatDate(dateTo)}`;
+    const lines: string[] = [];
+    lines.push(`🍱 ${memberLabel} ${rangeLabel} 明細`);
+    lines.push('━'.repeat(24));
+    const sortedDates = [...datesInRange].reverse();
+    for (const date of sortedDates) {
+      const dayOrders = ordersByDate[date] || [];
+      if (dayOrders.length === 0) continue;
+      for (const o of dayOrders) {
+        const weekday = getWeekday(date);
+        const userPart = selectedMember === 'all' ? ` (${o.user})` : '';
+        const m = getPaymentMethod(o);
+        const methodTag = m === 'unpaid' ? ' ⏳未付' : m === 'cash' ? ' 💵現金' : '';
+        lines.push(`${formatDate(date)} ${weekday} ${o.restaurant}${userPart} $${o.totalAmount.toLocaleString()}${methodTag}`);
+        if (o.itemsText) lines.push(`  · ${o.itemsText}`);
+      }
+    }
+    lines.push('━'.repeat(24));
+    lines.push(`合計：$${rangeTotal.toLocaleString()}`);
+    const parts: string[] = [];
+    if (byMethod.balance) parts.push(`儲值金 $${byMethod.balance.toLocaleString()}`);
+    if (byMethod.cash) parts.push(`現金 $${byMethod.cash.toLocaleString()}`);
+    if (byMethod.unpaid) parts.push(`未付 $${byMethod.unpaid.toLocaleString()}`);
+    if (parts.length > 0) lines.push(parts.join(' / '));
+    if (selectedMember === 'all' && Object.keys(userTotals).length > 1) {
+      lines.push('');
+      lines.push('按成員：');
+      for (const [user, total] of Object.entries(userTotals).sort((a, b) => b[1] - a[1])) {
+        lines.push(`  ${user}: $${total.toLocaleString()}`);
+      }
+    }
+    return lines.join('\n');
+  }
+
+  async function handleCopy() {
+    const text = formatDetailText();
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('已複製到剪貼簿');
+    } catch {
+      showToast('複製失敗');
+    }
+  }
+
+  async function handleShare() {
+    const text = formatDetailText();
+    const memberLabel = selectedMember === 'all' ? '全體' : selectedMember;
+    const title = `${memberLabel} 訂餐明細`;
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await (navigator as Navigator).share({ title, text });
+      } catch (err) {
+        // User cancelled the share sheet → do nothing. Other errors → fallback to copy.
+        if ((err as Error).name !== 'AbortError') handleCopy();
+      }
+    } else {
+      handleCopy();
+    }
   }
 
   function handleDelete(id: string) {
@@ -117,24 +252,109 @@ export default function HistoryPage() {
         <span>點餐紀錄</span>
       </h1>
 
-      {/* Week Navigator */}
-      <div className="card mb-4 flex items-center justify-between">
-        <button className="btn btn-ghost" onClick={() => setWeekOffset(w => w - 1)}>← 上週</button>
-        <div className="text-center">
-          <p className="text-sm font-bold">{formatDate(weekDates[0])} ~ {formatDate(weekDates[4])}</p>
-          {weekOffset === 0 && <p className="text-xs" style={{ color: 'var(--color-primary)' }}>本週</p>}
+      {/* Filter card — member chips + date range + quick presets */}
+      <div className="card mb-3">
+        <div className="mb-3">
+          <label className="input-label">成員</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[{ name: 'all', label: '全部' }, ...members.map(m => ({ name: m.name, label: m.name }))].map(opt => {
+              const active = selectedMember === opt.name;
+              return (
+                <button
+                  key={opt.name}
+                  onClick={() => setSelectedMember(opt.name)}
+                  className="btn"
+                  style={{
+                    fontSize: 13, padding: '6px 14px',
+                    background: active ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                    color: active ? 'white' : 'var(--color-text)',
+                    border: active ? 'none' : '1px solid var(--color-border)',
+                  }}
+                >{opt.label}</button>
+              );
+            })}
+          </div>
         </div>
-        <button className="btn btn-ghost" onClick={() => setWeekOffset(w => w + 1)}>下週 →</button>
+
+        <div>
+          <label className="input-label">日期範圍</label>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+            <input
+              className="input"
+              type="date"
+              value={dateFrom}
+              max={dateTo}
+              onChange={e => setDateFrom(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <span style={{ color: 'var(--color-text-muted)' }}>~</span>
+            <input
+              className="input"
+              type="date"
+              value={dateTo}
+              min={dateFrom}
+              onChange={e => setDateTo(e.target.value)}
+              style={{ flex: 1 }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              { key: 'this-week',  label: '本週', fn: applyThisWeek  },
+              { key: 'last-week',  label: '上週', fn: applyLastWeek  },
+              { key: 'this-month', label: '本月', fn: applyThisMonth },
+            ] as const).map(p => {
+              const active = preset === p.key;
+              return (
+                <button
+                  key={p.key}
+                  onClick={p.fn}
+                  className="btn flex-1"
+                  style={{
+                    fontSize: 12, padding: '6px 4px',
+                    background: active ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                    color: active ? 'white' : 'var(--color-text-secondary)',
+                    border: active ? 'none' : '1px solid var(--color-border)',
+                  }}
+                >{p.label}</button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Week Summary */}
+      {/* Range summary with Copy / Share actions */}
       <div className="card mb-4">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold">本週小計</p>
-          <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>${weekTotal.toLocaleString()}</p>
+          <p className="text-sm font-semibold">
+            {selectedMember === 'all' ? '區間小計' : `${selectedMember} 小計`}
+          </p>
+          <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>${rangeTotal.toLocaleString()}</p>
         </div>
-        {Object.keys(userTotals).length > 0 && (
-          <div className="flex flex-wrap gap-3">
+
+        {/* Payment method breakdown */}
+        {(byMethod.balance > 0 || byMethod.cash > 0 || byMethod.unpaid > 0) && (
+          <div className="flex flex-wrap gap-3 mb-2">
+            {byMethod.balance > 0 && (
+              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                💳 儲值金 ${byMethod.balance.toLocaleString()}
+              </span>
+            )}
+            {byMethod.cash > 0 && (
+              <span className="text-xs" style={{ color: 'var(--color-success)' }}>
+                💵 現金 ${byMethod.cash.toLocaleString()}
+              </span>
+            )}
+            {byMethod.unpaid > 0 && (
+              <span className="text-xs" style={{ color: 'var(--color-warning)', fontWeight: 600 }}>
+                ⏳ 未付 ${byMethod.unpaid.toLocaleString()}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Per-user totals (only useful when 全部 is selected) */}
+        {selectedMember === 'all' && Object.keys(userTotals).length > 0 && (
+          <div className="flex flex-wrap gap-3 mb-2">
             {Object.entries(userTotals).sort((a, b) => b[1] - a[1]).map(([user, total]) => (
               <span key={user} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 {user}: ${total.toLocaleString()}
@@ -142,11 +362,20 @@ export default function HistoryPage() {
             ))}
           </div>
         )}
-        {weekUnpaid > 0 && (
-          <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-            <span className="text-xs" style={{ color: 'var(--color-warning)', fontWeight: 600 }}>
-              ⏳ 本週待收現金：${weekUnpaid.toLocaleString()}
-            </span>
+
+        {/* Copy / Share actions */}
+        {orders.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--color-border-subtle)' }}>
+            <button
+              className="btn flex-1"
+              onClick={handleCopy}
+              style={{ fontSize: 13, padding: '8px', background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+            >📋 複製明細</button>
+            <button
+              className="btn btn-primary flex-1"
+              onClick={handleShare}
+              style={{ fontSize: 13, padding: '8px' }}
+            >📤 分享</button>
           </div>
         )}
       </div>
@@ -163,11 +392,15 @@ export default function HistoryPage() {
       ) : orders.length === 0 ? (
         <div className="card text-center py-8">
           <p className="text-2xl mb-2">🍽️</p>
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>這週還沒有點餐紀錄</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            {selectedMember === 'all'
+              ? '這個區間沒有點餐紀錄'
+              : `${selectedMember} 在這個區間沒有點餐紀錄`}
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {[...weekDates].reverse().map(date => {
+          {[...datesInRange].reverse().map(date => {
             const dayOrders = ordersByDate[date] || [];
             if (dayOrders.length === 0) return null;
             const dayTotal = dayOrders.reduce((s, o) => s + o.totalAmount, 0);
