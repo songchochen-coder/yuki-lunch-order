@@ -117,6 +117,73 @@ export function getUnpaidOrders(user?: string): LunchOrder[] {
   return getOrders().filter(o => getPaymentMethod(o) === 'unpaid' && (!user || o.user === user));
 }
 
+// Back-settle unpaid orders with the member's current stored balance. Walks
+// unpaid orders oldest-first and converts each to balance-paid while the
+// balance can still cover the next one. Stops when balance runs out — any
+// remaining unpaid orders stay unpaid and can be collected later as cash.
+//
+// Returns how many were settled and the total amount deducted. Used after a
+// member deposits new money to clear their accumulated tab in one shot.
+export function settleUnpaidWithBalance(user: string): { settled: number; amount: number; remaining: number } {
+  const members = getMembers();
+  const member = members.find(m => m.name === user);
+  if (!member) return { settled: 0, amount: 0, remaining: 0 };
+
+  const orders = getOrders();
+  const unpaid = orders
+    .map((o, idx) => ({ o, idx }))
+    .filter(({ o }) => o.user === user && getPaymentMethod(o) === 'unpaid')
+    .sort((a, b) => {
+      if (a.o.date !== b.o.date) return a.o.date.localeCompare(b.o.date);
+      return (a.o.createdAt || '').localeCompare(b.o.createdAt || '');
+    });
+
+  let available = member.balance;
+  let settled = 0;
+  let amount = 0;
+  const settledMeta: { id: string; amt: number; description: string }[] = [];
+
+  for (const { o, idx } of unpaid) {
+    if (available < o.totalAmount) break;
+    orders[idx] = { ...o, paymentMethod: 'balance' };
+    available -= o.totalAmount;
+    settled++;
+    amount += o.totalAmount;
+    settledMeta.push({
+      id: o.id,
+      amt: o.totalAmount,
+      description: `補扣儲值金 - ${o.restaurant} - ${o.itemsText}`,
+    });
+  }
+
+  const remaining = unpaid.length - settled;
+  if (settled === 0) return { settled: 0, amount: 0, remaining };
+
+  // Atomic apply: orders, balance, transactions all at once.
+  writeStore('lunch-orders', orders);
+  member.balance = available;
+  writeStore('lunch-members', members);
+
+  const txs = getTransactions();
+  const now = new Date().toISOString();
+  const date = todayStr();
+  for (const s of settledMeta) {
+    txs.push({
+      id: generateId(),
+      user,
+      type: 'deduct',
+      amount: s.amt,
+      orderId: s.id,
+      description: s.description,
+      date,
+      createdAt: now,
+    });
+  }
+  writeStore('lunch-transactions', txs);
+
+  return { settled, amount, remaining };
+}
+
 // Edit an existing order's editable fields. Handles balance reconciliation when
 // the user or amount changes on a balance-paid order:
 //   - Refund the old amount to the old user

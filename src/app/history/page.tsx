@@ -167,7 +167,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {weekDates.map(date => {
+          {[...weekDates].reverse().map(date => {
             const dayOrders = ordersByDate[date] || [];
             if (dayOrders.length === 0) return null;
             const dayTotal = dayOrders.reduce((s, o) => s + o.totalAmount, 0);

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import { Member, BalanceTransaction, todayStr } from '@/lib/types';
 import { getSettings, saveSettings } from '@/lib/settings';
-import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions } from '@/lib/client-db';
+import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions, getUnpaidOrders, settleUnpaidWithBalance } from '@/lib/client-db';
 import { AppSkin, getSkin, saveSkin, applySkin, COLOR_PRESETS, WALLPAPER_PRESETS } from '@/lib/skin';
 
 export default function SettingsPage() {
@@ -91,6 +91,35 @@ export default function SettingsPage() {
         ? `已為 ${depositUser} 儲值 $${amt}${dateLabel}`
         : `已從 ${depositUser} 扣回 $${amt}${dateLabel}`);
       setDepositAmount('');
+
+      // After a successful ADD, offer to back-settle any unpaid orders with
+      // the freshly-topped-up balance. Skip for DEDUCT since we just removed
+      // money and there's nothing new to settle.
+      if (depositMode === 'add') {
+        const unpaid = getUnpaidOrders(depositUser);
+        if (unpaid.length > 0) {
+          const unpaidTotal = unpaid.reduce((s, o) => s + o.totalAmount, 0);
+          const current = dbGetMembers().find(m => m.name === depositUser);
+          const balanceAfter = current?.balance ?? 0;
+          const canAll = balanceAfter >= unpaidTotal;
+          const msg = canAll
+            ? `${depositUser} 有 ${unpaid.length} 筆未付款共 $${unpaidTotal.toLocaleString()}。\n儲值後餘額 $${balanceAfter.toLocaleString()} 夠全部抵扣。\n\n要從儲值金扣掉嗎？`
+            : `${depositUser} 有 ${unpaid.length} 筆未付款共 $${unpaidTotal.toLocaleString()}。\n儲值後餘額 $${balanceAfter.toLocaleString()}，只夠抵扣最舊的幾筆。\n\n要先抵扣可負擔的部分嗎？剩下未扣的保持未付款。`;
+          // Defer to let the toast render first
+          setTimeout(() => {
+            if (confirm(msg)) {
+              const { settled, amount, remaining } = settleUnpaidWithBalance(depositUser);
+              if (settled > 0) {
+                // Refresh balances to reflect deductions
+                setMembers(dbGetMembers());
+                showToast(remaining > 0
+                  ? `已抵扣 ${settled} 筆 $${amount.toLocaleString()}，還有 ${remaining} 筆未付款`
+                  : `已抵扣 ${settled} 筆 $${amount.toLocaleString()}，全部清完 ✓`);
+              }
+            }
+          }, 100);
+        }
+      }
     } catch {
       showToast(depositMode === 'add' ? '儲值失敗' : '扣款失敗');
     }
