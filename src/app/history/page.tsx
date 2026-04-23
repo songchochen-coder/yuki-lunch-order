@@ -181,7 +181,15 @@ export default function HistoryPage() {
       lines.push('');
       lines.push('按成員：');
       for (const [user, total] of Object.entries(userTotals).sort((a, b) => b[1] - a[1])) {
-        lines.push(`  ${user}: $${total.toLocaleString()}`);
+        const bal = members.find(m => m.name === user)?.balance;
+        const balPart = typeof bal === 'number' ? `  (餘 $${bal.toLocaleString()})` : '';
+        lines.push(`  ${user}: $${total.toLocaleString()}${balPart}`);
+      }
+    } else if (selectedMember !== 'all') {
+      const bal = members.find(m => m.name === selectedMember)?.balance;
+      if (typeof bal === 'number') {
+        lines.push('');
+        lines.push(`💳 ${selectedMember} 目前儲值金餘額：$${bal.toLocaleString()}`);
       }
     }
     return lines.join('\n');
@@ -381,13 +389,37 @@ export default function HistoryPage() {
         {/* Per-user totals (only useful when 全部 is selected) */}
         {selectedMember === 'all' && Object.keys(userTotals).length > 0 && (
           <div className="flex flex-wrap gap-3 mb-2">
-            {Object.entries(userTotals).sort((a, b) => b[1] - a[1]).map(([user, total]) => (
-              <span key={user} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                {user}: ${total.toLocaleString()}
-              </span>
-            ))}
+            {Object.entries(userTotals).sort((a, b) => b[1] - a[1]).map(([user, total]) => {
+              const bal = members.find(m => m.name === user)?.balance;
+              return (
+                <span key={user} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  {user}: ${total.toLocaleString()}
+                  {typeof bal === 'number' && (
+                    <span style={{ color: bal < 0 ? 'var(--color-danger)' : bal < 200 ? 'var(--color-warning)' : 'var(--color-success)', marginLeft: 4 }}>
+                      （餘 ${bal.toLocaleString()}）
+                    </span>
+                  )}
+                </span>
+              );
+            })}
           </div>
         )}
+
+        {/* Balance callout when a specific member is selected */}
+        {selectedMember !== 'all' && (() => {
+          const bal = members.find(m => m.name === selectedMember)?.balance;
+          if (typeof bal !== 'number') return null;
+          return (
+            <div className="flex items-center justify-between mb-2 pt-2" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                💳 {selectedMember} 目前儲值金餘額
+              </span>
+              <span className="text-sm font-bold" style={{ color: bal < 0 ? 'var(--color-danger)' : bal < 200 ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                ${bal.toLocaleString()}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* Copy / Share actions */}
         {orders.length > 0 && (
