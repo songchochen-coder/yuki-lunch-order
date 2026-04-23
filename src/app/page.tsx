@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
-import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday } from '@/lib/types';
+import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, todayStr } from '@/lib/types';
 import { getOrdersByWeek, getMembers, getUnpaidTotalsByUser, collectAllForUser } from '@/lib/client-db';
 
 export default function Home() {
@@ -13,7 +13,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr();
   const weekStart = getWeekStart(today);
   const weekDates = getWeekDates(today);
 

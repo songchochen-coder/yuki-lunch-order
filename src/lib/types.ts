@@ -104,6 +104,22 @@ export interface AnalyzeResult {
 
 export const WEEKDAYS = ['週一', '週二', '週三', '週四', '週五'] as const;
 
+// Format a Date as YYYY-MM-DD in the LOCAL timezone. Using toISOString() here
+// would silently shift the date back one day in UTC+N zones (e.g. Taiwan UTC+8
+// where local midnight = 16:00 UTC the previous day), which is why the whole
+// "本週" calculation was showing last week's range.
+export function toLocalDateStr(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Today's date as a local YYYY-MM-DD string.
+export function todayStr(): string {
+  return toLocalDateStr();
+}
+
 export function getWeekday(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');
   const day = date.getDay();
@@ -119,7 +135,7 @@ export function getWeekStart(dateStr: string): string {
   const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   date.setDate(date.getDate() + diff);
-  return date.toISOString().split('T')[0];
+  return toLocalDateStr(date);
 }
 
 export function getWeekDates(dateStr: string): string[] {
@@ -128,7 +144,7 @@ export function getWeekDates(dateStr: string): string[] {
   for (let i = 0; i < 5; i++) {
     const d = new Date(monday + 'T00:00:00');
     d.setDate(d.getDate() + i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(toLocalDateStr(d));
   }
   return dates;
 }

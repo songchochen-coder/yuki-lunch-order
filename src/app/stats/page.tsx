@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
-import { LunchOrder, MenuTemplate, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod } from '@/lib/types';
+import { LunchOrder, MenuTemplate, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod, todayStr } from '@/lib/types';
 import { getOrders, deleteOrder, getMenus, applyGroupDiscount, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, setOrderAmount as dbSetOrderAmount } from '@/lib/client-db';
 
 type Tab = 'order' | 'overview';
@@ -113,7 +113,7 @@ export default function StatsPage() {
   }
   const [tab, setTab] = useState<Tab>('order');
   const [period, setPeriod] = useState<'week' | 'month'>('week');
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr();
   const [selectedDate, setSelectedDate] = useState(today);
 
   const weekStart = getWeekStart(today);
