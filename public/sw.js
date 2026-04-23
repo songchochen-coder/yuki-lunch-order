@@ -1,4 +1,7 @@
-const CACHE_NAME = 'lunch-order-v1';
+// Bumping the cache name invalidates every previously-cached response on
+// activate (see the activate handler below). Bump this any time a deploy ships
+// user-visible changes that must show up immediately.
+const CACHE_NAME = 'lunch-order-v2';
 
 const PRECACHE_URLS = [
   '/',
@@ -32,41 +35,47 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/')) return;
 
-  // Don't cache API calls (Gemini analyze)
-  if (url.pathname.startsWith('/api/')) {
+  const isNavigation = event.request.mode === 'navigate';
+  const accept = event.request.headers.get('Accept') || '';
+  const isHTML = accept.includes('text/html');
+
+  // Network-first for pages (HTML / navigations). This is what fixes the
+  // "I deployed but my app still shows the old UI" problem: every navigation
+  // tries the network first so fresh builds reach users immediately. Cache
+  // is only used as the offline fallback.
+  if (isNavigation || isHTML) {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() =>
+        caches.match(event.request).then((cached) => cached || caches.match('/'))
+      )
+    );
     return;
   }
 
+  // Stale-while-revalidate for static assets (JS / CSS / images). Next.js
+  // fingerprints filenames so stale chunks are never actually stale — each
+  // deploy ships new filenames — so cache-first here is safe and fast.
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) {
-        // Return cache but also update in background
-        fetch(event.request).then((response) => {
-          if (response.ok) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, response);
-            });
-          }
-        }).catch(() => {});
-        return cached;
-      }
-
-      return fetch(event.request).then((response) => {
+      const fetchPromise = fetch(event.request).then((response) => {
         if (response.ok && event.request.method === 'GET') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clone);
-          });
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => {
-        // Offline fallback for navigation
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
+        if (cached) return cached;
         return new Response('Offline', { status: 503 });
       });
+      return cached || fetchPromise;
     })
   );
 });
