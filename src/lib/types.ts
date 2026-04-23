@@ -93,6 +93,11 @@ export interface BalanceTransaction {
 export interface AppSettings {
   users: string[];
   geminiApiKey?: string;
+  // Orders older than this many months (based on order date) become eligible
+  // for cleanup. 0 or unset = keep everything forever. Unpaid orders are
+  // always protected regardless of age. Menus / members / transactions are
+  // never auto-deleted — see deleteExpiredOrders().
+  retentionMonths?: number;
 }
 
 export interface AnalyzeResult {

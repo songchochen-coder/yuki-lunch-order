@@ -404,6 +404,84 @@ export function getUnpaidTotalsByUser(): Record<string, number> {
   return totals;
 }
 
+// ─── Data retention ───
+
+// Compute the cutoff date (local YYYY-MM-DD) for a retention window. Orders
+// with a date strictly older than this are considered expired.
+export function getRetentionCutoff(months: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return toLocalDateStr(d);
+}
+
+// Summarize what a cleanup pass would touch without actually deleting.
+// Covers orders + transactions (both aged off after `retentionMonths`). Unpaid
+// orders are ALWAYS protected from deletion regardless of age.
+export function getExpiredSummary(cutoffDate: string): {
+  deletableOrders: LunchOrder[];
+  protectedUnpaid: LunchOrder[];
+  deletableTransactions: number;
+  earliestDate: string | null;
+} {
+  const orders = getOrders();
+  const oldOrders = orders.filter(o => o.date < cutoffDate);
+  const deletableOrders = oldOrders.filter(o => getPaymentMethod(o) !== 'unpaid');
+  const protectedUnpaid = oldOrders.filter(o => getPaymentMethod(o) === 'unpaid');
+
+  const txs = getTransactions();
+  const oldTxs = txs.filter(t => t.date < cutoffDate);
+
+  // Earliest date across both sources (for "最早 YYYY-MM-DD" display)
+  let earliest: string | null = null;
+  for (const o of oldOrders) if (!earliest || o.date < earliest) earliest = o.date;
+  for (const t of oldTxs) if (!earliest || t.date < earliest) earliest = t.date;
+
+  return {
+    deletableOrders,
+    protectedUnpaid,
+    deletableTransactions: oldTxs.length,
+    earliestDate: earliest,
+  };
+}
+
+// Delete expired orders (skipping unpaid) + expired transactions. Members,
+// balances, and menus are never touched. Returns counts for toast feedback.
+export function deleteExpiredData(cutoffDate: string): { deletedOrders: number; deletedTransactions: number } {
+  const orders = getOrders();
+  const keepOrders = orders.filter(o =>
+    o.date >= cutoffDate || getPaymentMethod(o) === 'unpaid'
+  );
+  const deletedOrders = orders.length - keepOrders.length;
+  if (deletedOrders > 0) writeStore('lunch-orders', keepOrders);
+
+  const txs = getTransactions();
+  const keepTxs = txs.filter(t => t.date >= cutoffDate);
+  const deletedTransactions = txs.length - keepTxs.length;
+  if (deletedTransactions > 0) writeStore('lunch-transactions', keepTxs);
+
+  return { deletedOrders, deletedTransactions };
+}
+
+// Return EVERYTHING as a JSON-serialisable snapshot. Intended for manual
+// backup before the user prunes old records.
+export function exportAllData(): {
+  version: number;
+  exportedAt: string;
+  orders: LunchOrder[];
+  members: Member[];
+  transactions: BalanceTransaction[];
+  menus: MenuTemplate[];
+} {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    orders: getOrders(),
+    members: getMembers(),
+    transactions: getTransactions(),
+    menus: getMenus(),
+  };
+}
+
 // ─── Members ───
 
 export function getMembers(): Member[] {

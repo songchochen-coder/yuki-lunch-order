@@ -4,6 +4,7 @@ const SETTINGS_KEY = 'yuki-lunch-order-settings';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   users: ['成員1', '成員2'],
+  retentionMonths: 4,
 };
 
 export function getSettings(): AppSettings {

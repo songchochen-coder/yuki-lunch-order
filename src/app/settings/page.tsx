@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import { Member, BalanceTransaction, todayStr } from '@/lib/types';
 import { getSettings, saveSettings } from '@/lib/settings';
-import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions, getUnpaidOrders, settleUnpaidWithBalance } from '@/lib/client-db';
+import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions, getUnpaidOrders, settleUnpaidWithBalance, getOrders, getRetentionCutoff, getExpiredSummary, deleteExpiredData, exportAllData } from '@/lib/client-db';
 import { AppSkin, getSkin, saveSkin, applySkin, COLOR_PRESETS, WALLPAPER_PRESETS } from '@/lib/skin';
 
 export default function SettingsPage() {
@@ -20,10 +20,30 @@ export default function SettingsPage() {
   const [depositDate, setDepositDate] = useState(todayStr());
   const [depositMode, setDepositMode] = useState<'add' | 'deduct'>('add');
   const [skin, setSkinState] = useState<AppSkin>({ primaryColor: '#F4A261', wallpaper: null, colorScheme: 'light', textSize: 'normal' });
+  const [retentionMonths, setRetentionMonths] = useState<number>(4);
+  const [maintSummary, setMaintSummary] = useState<{ totalOrders: number; expiredOrders: number; protectedUnpaid: number; expiredTx: number; earliest: string | null }>({
+    totalOrders: 0, expiredOrders: 0, protectedUnpaid: 0, expiredTx: 0, earliest: null,
+  });
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2000);
+  }, []);
+
+  const refreshMaintSummary = useCallback((months: number) => {
+    if (!months || months <= 0) {
+      setMaintSummary({ totalOrders: getOrders().length, expiredOrders: 0, protectedUnpaid: 0, expiredTx: 0, earliest: null });
+      return;
+    }
+    const cutoff = getRetentionCutoff(months);
+    const s = getExpiredSummary(cutoff);
+    setMaintSummary({
+      totalOrders: getOrders().length,
+      expiredOrders: s.deletableOrders.length,
+      protectedUnpaid: s.protectedUnpaid.length,
+      expiredTx: s.deletableTransactions,
+      earliest: s.earliestDate,
+    });
   }, []);
 
   useEffect(() => {
@@ -34,8 +54,56 @@ export default function SettingsPage() {
     saveSettings(settings);
     setGeminiApiKey(settings.geminiApiKey || '');
     setSkinState(getSkin());
+    const months = settings.retentionMonths ?? 4;
+    setRetentionMonths(months);
+    refreshMaintSummary(months);
     setLoading(false);
-  }, []);
+  }, [refreshMaintSummary]);
+
+  function handleRetentionChange(months: number) {
+    setRetentionMonths(months);
+    const settings = getSettings();
+    settings.retentionMonths = months;
+    saveSettings(settings);
+    refreshMaintSummary(months);
+  }
+
+  function handleExportData() {
+    const data = exportAllData();
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lunch-order-backup-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('已匯出備份');
+  }
+
+  function handleCleanupExpired() {
+    if (retentionMonths <= 0) { showToast('保留期限為永久，無可清理'); return; }
+    const cutoff = getRetentionCutoff(retentionMonths);
+    const s = getExpiredSummary(cutoff);
+    if (s.deletableOrders.length === 0 && s.deletableTransactions === 0) {
+      showToast('目前沒有過期資料');
+      return;
+    }
+    const msg = [
+      `即將刪除早於 ${cutoff} 的資料：`,
+      ``,
+      `· 訂單：${s.deletableOrders.length} 筆`,
+      `· 交易紀錄：${s.deletableTransactions} 筆`,
+      s.protectedUnpaid.length > 0 ? `\n⚠️ ${s.protectedUnpaid.length} 筆未付款訂單會保留（不會刪）` : '',
+      ``,
+      `建議先按「💾 匯出備份」保存一份 JSON。`,
+      `確定要清理嗎？此操作無法復原。`,
+    ].filter(Boolean).join('\n');
+    if (!confirm(msg)) return;
+    const { deletedOrders, deletedTransactions } = deleteExpiredData(cutoff);
+    refreshMaintSummary(retentionMonths);
+    showToast(`已清理 ${deletedOrders} 筆訂單 / ${deletedTransactions} 筆交易`);
+  }
 
   function updateSkin(patch: Partial<AppSkin>) {
     const next = { ...skin, ...patch };
@@ -481,6 +549,93 @@ export default function SettingsPage() {
             <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
               💡 桌布顯示在內容卡片後方。若覺得太花可換「無」回乾淨底色。
             </p>
+          )}
+        </div>
+      </div>
+
+      {/* Data Retention */}
+      <div className="card mb-4">
+        <p className="text-sm font-semibold mb-3">📦 資料維護</p>
+
+        <div className="mb-3">
+          <label className="input-label">保留期限</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { m: 3,  label: '3 個月' },
+              { m: 4,  label: '4 個月' },
+              { m: 6,  label: '6 個月' },
+              { m: 12, label: '12 個月' },
+              { m: 0,  label: '永久保留' },
+            ].map(opt => {
+              const active = retentionMonths === opt.m;
+              return (
+                <button
+                  key={opt.m}
+                  onClick={() => handleRetentionChange(opt.m)}
+                  className="btn"
+                  style={{
+                    fontSize: 13, padding: '6px 12px',
+                    background: active ? 'var(--color-primary)' : 'var(--color-bg-input)',
+                    color: active ? 'white' : 'var(--color-text)',
+                    border: active ? 'none' : '1px solid var(--color-border)',
+                  }}
+                >{opt.label}</button>
+              );
+            })}
+          </div>
+          <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+            訂單與交易紀錄超過此期限會列為可清理。菜單庫、成員、餘額永久保留。
+          </p>
+        </div>
+
+        {/* Maintenance stats */}
+        <div className="mb-3 p-3" style={{ background: 'var(--color-bg-input)', borderRadius: 8 }}>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>目前訂單總數</span>
+            <span className="text-sm font-semibold">{maintSummary.totalOrders} 筆</span>
+          </div>
+          {retentionMonths > 0 && (
+            <>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>過期可清理</span>
+                <span className="text-sm font-semibold" style={{ color: maintSummary.expiredOrders > 0 ? 'var(--color-warning)' : 'var(--color-text)' }}>
+                  {maintSummary.expiredOrders} 筆訂單 / {maintSummary.expiredTx} 筆交易
+                </span>
+              </div>
+              {maintSummary.protectedUnpaid > 0 && (
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>⏳ 未付款（保留）</span>
+                  <span className="text-sm font-semibold" style={{ color: 'var(--color-warning)' }}>
+                    {maintSummary.protectedUnpaid} 筆
+                  </span>
+                </div>
+              )}
+              {maintSummary.earliest && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>最早過期日</span>
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{maintSummary.earliest}</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            className="btn btn-block"
+            onClick={handleExportData}
+            style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', color: 'var(--color-text)', fontSize: 14 }}
+          >
+            💾 匯出全部備份 (JSON)
+          </button>
+          {retentionMonths > 0 && (maintSummary.expiredOrders > 0 || maintSummary.expiredTx > 0) && (
+            <button
+              className="btn btn-block"
+              onClick={handleCleanupExpired}
+              style={{ background: 'var(--color-tint-warning)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 14 }}
+            >
+              🧹 清理 {maintSummary.expiredOrders} 筆過期訂單 / {maintSummary.expiredTx} 筆交易
+            </button>
           )}
         </div>
       </div>
