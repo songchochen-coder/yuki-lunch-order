@@ -1,4 +1,4 @@
-import { LunchOrder, Member, MenuTemplate, BalanceTransaction, generateId, getPaymentMethod, applyDiscount } from './types';
+import { LunchOrder, Member, MenuTemplate, BalanceTransaction, generateId, getPaymentMethod, applyDiscount, toLocalDateStr, todayStr } from './types';
 
 function readStore<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -27,7 +27,7 @@ export function getOrdersByWeek(weekStart: string): LunchOrder[] {
   const start = new Date(weekStart + 'T00:00:00');
   const end = new Date(start);
   end.setDate(end.getDate() + 5);
-  const endStr = end.toISOString().split('T')[0];
+  const endStr = toLocalDateStr(end);
   return orders.filter(o => o.date >= weekStart && o.date < endStr);
 }
 
@@ -98,7 +98,7 @@ export function markOrderPaid(id: string, paidDate?: string): LunchOrder | null 
   const order = orders[idx];
   if (getPaymentMethod(order) !== 'unpaid') return null;
 
-  const paidAt = paidDate || new Date().toISOString().split('T')[0];
+  const paidAt = paidDate || todayStr();
   const updated: LunchOrder = { ...order, paymentMethod: 'cash', paidAt };
   orders[idx] = updated;
   writeStore('lunch-orders', orders);
@@ -212,7 +212,7 @@ export function markOrderUnpaid(id: string): LunchOrder | null {
 // habit of settling a person's whole tab at once instead of order-by-order.
 export function collectAllForUser(user: string, paidDate?: string): { count: number; total: number } {
   const orders = getOrders();
-  const paidAt = paidDate || new Date().toISOString().split('T')[0];
+  const paidAt = paidDate || todayStr();
   let count = 0;
   let total = 0;
   for (let i = 0; i < orders.length; i++) {
@@ -370,7 +370,7 @@ export function deposit(user: string, amount: number, description?: string, depo
   member.balance += amount;
   writeStore('lunch-members', members);
 
-  const date = depositDate || new Date().toISOString().split('T')[0];
+  const date = depositDate || todayStr();
   const tx: BalanceTransaction = {
     id: generateId(),
     user,
@@ -404,7 +404,7 @@ export function adjustBalance(
   member.balance += signedAmount;
   writeStore('lunch-members', members);
 
-  const date = adjustDate || new Date().toISOString().split('T')[0];
+  const date = adjustDate || todayStr();
   const isCredit = signedAmount > 0;
   const magnitude = Math.abs(signedAmount);
   const tx: BalanceTransaction = {
@@ -437,7 +437,7 @@ function deductBalance(user: string, amount: number, orderId: string, descriptio
     amount,
     orderId,
     description,
-    date: new Date().toISOString().split('T')[0],
+    date: todayStr(),
     createdAt: new Date().toISOString(),
   };
   const txs = getTransactions();
@@ -460,7 +460,7 @@ function refundBalance(user: string, amount: number, orderId: string, descriptio
     amount,
     orderId,
     description,
-    date: new Date().toISOString().split('T')[0],
+    date: todayStr(),
     createdAt: new Date().toISOString(),
   };
   const txs = getTransactions();
@@ -478,7 +478,7 @@ function recordCashReceipt(user: string, amount: number, orderId: string, descri
     amount,
     orderId,
     description,
-    date: date || new Date().toISOString().split('T')[0],
+    date: date || todayStr(),
     createdAt: new Date().toISOString(),
   };
   const txs = getTransactions();
@@ -514,7 +514,7 @@ export function saveMenu(menu: { restaurant: string; phone?: string; items: { na
         existing.items.push({ name: item.name, price: item.price, quantity: 1 });
       }
     }
-    existing.lastUsed = new Date().toISOString().split('T')[0];
+    existing.lastUsed = todayStr();
     existing.useCount += 1;
     writeStore('lunch-menus', menus);
     return existing;
@@ -522,7 +522,7 @@ export function saveMenu(menu: { restaurant: string; phone?: string; items: { na
   const newMenu: MenuTemplate = {
     ...menu,
     id: generateId(),
-    lastUsed: new Date().toISOString().split('T')[0],
+    lastUsed: todayStr(),
     useCount: 1,
     createdAt: new Date().toISOString(),
   };
@@ -562,7 +562,7 @@ function autoSaveMenu(restaurant: string, items: { name: string; price: number; 
         existing.items.push({ name: item.name, price: item.price, quantity: 1 });
       }
     }
-    existing.lastUsed = new Date().toISOString().split('T')[0];
+    existing.lastUsed = todayStr();
     existing.useCount += 1;
     writeStore('lunch-menus', menus);
   } else {

@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { getSettings } from '@/lib/settings';
-import { MenuTemplate, OrderItem, Member } from '@/lib/types';
+import { MenuTemplate, OrderItem, Member, todayStr } from '@/lib/types';
 import { getMenus, getMembers, createOrder, saveMenu } from '@/lib/client-db';
 
 export default function AddPage() {
   const router = useRouter();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr();
 
   const [menus, setMenus] = useState<MenuTemplate[]>([]);
   const [members, setMembers] = useState<Member[]>([]);

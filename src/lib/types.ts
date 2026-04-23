@@ -114,12 +114,23 @@ export function getWeekday(dateStr: string): string {
   return map[day] || '';
 }
 
+export function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function todayStr(): string {
+  return toLocalDateStr(new Date());
+}
+
 export function getWeekStart(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');
   const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   date.setDate(date.getDate() + diff);
-  return date.toISOString().split('T')[0];
+  return toLocalDateStr(date);
 }
 
 export function getWeekDates(dateStr: string): string[] {
@@ -128,7 +139,7 @@ export function getWeekDates(dateStr: string): string[] {
   for (let i = 0; i < 5; i++) {
     const d = new Date(monday + 'T00:00:00');
     d.setDate(d.getDate() + i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(toLocalDateStr(d));
   }
   return dates;
 }

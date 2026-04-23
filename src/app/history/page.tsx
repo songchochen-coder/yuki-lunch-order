@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
-import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod } from '@/lib/types';
+import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod, todayStr, toLocalDateStr } from '@/lib/types';
 import { getOrdersByWeek, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, editOrder as dbEditOrder, getMembers } from '@/lib/client-db';
 
 export default function HistoryPage() {
@@ -14,10 +14,10 @@ export default function HistoryPage() {
   const [toast, setToast] = useState('');
   const [editingOrder, setEditingOrder] = useState<LunchOrder | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr();
   const baseDate = new Date(today + 'T00:00:00');
   baseDate.setDate(baseDate.getDate() + weekOffset * 7);
-  const currentDate = baseDate.toISOString().split('T')[0];
+  const currentDate = toLocalDateStr(baseDate);
   const weekStart = getWeekStart(currentDate);
   const weekDates = getWeekDates(currentDate);
 

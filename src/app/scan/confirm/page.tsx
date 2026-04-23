@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { getSettings } from '@/lib/settings';
 import type { AnalyzeResult, OrderItem } from '@/lib/types';
-import { applyDiscount, formatDiscount } from '@/lib/types';
+import { applyDiscount, formatDiscount, todayStr } from '@/lib/types';
 import { getMembers, createOrder, saveMenu } from '@/lib/client-db';
 
 interface UserSelection {
@@ -53,7 +53,7 @@ export default function ConfirmPage() {
       setRestaurant(result.restaurant || '未知餐廳');
       setPhone(result.phone || '');
       setMenuItems(result.items || []);
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayStr());
       // Initialize empty selections for each user
       setSelections(names.map(name => ({ name, items: [] })));
       setLoaded(true);

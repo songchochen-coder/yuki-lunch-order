@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import { getSettings } from '@/lib/settings';
-import { MenuTemplate, OrderItem, getWeekday, formatDate, Member } from '@/lib/types';
+import { MenuTemplate, OrderItem, getWeekday, formatDate, Member, todayStr } from '@/lib/types';
 import { getMenus, getMembers, createOrder } from '@/lib/client-db';
 
 interface UserSelection {
@@ -21,7 +21,7 @@ interface DayPlan {
 
 export default function WeeklyPlanPage() {
   const router = useRouter();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayStr();
 
   const [menus, setMenus] = useState<MenuTemplate[]>([]);
   const [members, setMembers] = useState<Member[]>([]);

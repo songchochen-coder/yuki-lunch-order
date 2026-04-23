@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
-import { Member, BalanceTransaction } from '@/lib/types';
+import { Member, BalanceTransaction, todayStr } from '@/lib/types';
 import { getSettings, saveSettings } from '@/lib/settings';
 import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions } from '@/lib/client-db';
 import { AppSkin, getSkin, saveSkin, applySkin, COLOR_PRESETS, WALLPAPER_PRESETS } from '@/lib/skin';
@@ -17,7 +17,7 @@ export default function SettingsPage() {
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
   const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0]);
+  const [depositDate, setDepositDate] = useState(todayStr());
   const [depositMode, setDepositMode] = useState<'add' | 'deduct'>('add');
   const [skin, setSkinState] = useState<AppSkin>({ primaryColor: '#F4A261', wallpaper: null, colorScheme: 'light', textSize: 'normal' });
 
