@@ -165,11 +165,18 @@ export default function HistoryPage() {
     }
     lines.push('━'.repeat(24));
     lines.push(`合計：$${rangeTotal.toLocaleString()}`);
-    const parts: string[] = [];
-    if (byMethod.balance) parts.push(`儲值金 $${byMethod.balance.toLocaleString()}`);
-    if (byMethod.cash) parts.push(`現金 $${byMethod.cash.toLocaleString()}`);
-    if (byMethod.unpaid) parts.push(`未付 $${byMethod.unpaid.toLocaleString()}`);
-    if (parts.length > 0) lines.push(parts.join(' / '));
+    const methodsUsed = [byMethod.balance > 0, byMethod.cash > 0, byMethod.unpaid > 0].filter(Boolean).length;
+    if (methodsUsed === 1) {
+      if (byMethod.balance > 0) lines.push('付款：全部從儲值金扣款');
+      else if (byMethod.cash > 0) lines.push('付款：全部現金已付');
+      else lines.push('⏳ 全部未付款');
+    } else if (methodsUsed > 1) {
+      const parts: string[] = [];
+      if (byMethod.balance) parts.push(`儲值金 $${byMethod.balance.toLocaleString()}`);
+      if (byMethod.cash) parts.push(`現金 $${byMethod.cash.toLocaleString()}`);
+      if (byMethod.unpaid) parts.push(`未付 $${byMethod.unpaid.toLocaleString()}`);
+      lines.push(parts.join(' / '));
+    }
     if (selectedMember === 'all' && Object.keys(userTotals).length > 1) {
       lines.push('');
       lines.push('按成員：');
@@ -331,26 +338,45 @@ export default function HistoryPage() {
           <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>${rangeTotal.toLocaleString()}</p>
         </div>
 
-        {/* Payment method breakdown */}
-        {(byMethod.balance > 0 || byMethod.cash > 0 || byMethod.unpaid > 0) && (
-          <div className="flex flex-wrap gap-3 mb-2">
-            {byMethod.balance > 0 && (
-              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                💳 儲值金 ${byMethod.balance.toLocaleString()}
-              </span>
-            )}
-            {byMethod.cash > 0 && (
-              <span className="text-xs" style={{ color: 'var(--color-success)' }}>
-                💵 現金 ${byMethod.cash.toLocaleString()}
-              </span>
-            )}
-            {byMethod.unpaid > 0 && (
-              <span className="text-xs" style={{ color: 'var(--color-warning)', fontWeight: 600 }}>
-                ⏳ 未付 ${byMethod.unpaid.toLocaleString()}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Payment method breakdown — only shown when multiple methods are
+            mixed in the range. When everything is one method we just show a
+            single tag because the breakdown number would just duplicate 合計. */}
+        {(() => {
+          const methodsUsed = [byMethod.balance > 0, byMethod.cash > 0, byMethod.unpaid > 0].filter(Boolean).length;
+          if (methodsUsed === 0) return null;
+          if (methodsUsed === 1) {
+            const only =
+              byMethod.balance > 0 ? { label: '💳 全部從儲值金扣款', color: 'var(--color-text-secondary)' } :
+              byMethod.cash > 0    ? { label: '💵 全部現金已付',     color: 'var(--color-success)' } :
+                                     { label: '⏳ 全部未付款',       color: 'var(--color-warning)' };
+            return (
+              <div className="mb-2">
+                <span className="text-xs" style={{ color: only.color, fontWeight: 600 }}>
+                  {only.label}
+                </span>
+              </div>
+            );
+          }
+          return (
+            <div className="flex flex-wrap gap-3 mb-2">
+              {byMethod.balance > 0 && (
+                <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  💳 儲值金 ${byMethod.balance.toLocaleString()}
+                </span>
+              )}
+              {byMethod.cash > 0 && (
+                <span className="text-xs" style={{ color: 'var(--color-success)' }}>
+                  💵 現金 ${byMethod.cash.toLocaleString()}
+                </span>
+              )}
+              {byMethod.unpaid > 0 && (
+                <span className="text-xs" style={{ color: 'var(--color-warning)', fontWeight: 600 }}>
+                  ⏳ 未付 ${byMethod.unpaid.toLocaleString()}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Per-user totals (only useful when 全部 is selected) */}
         {selectedMember === 'all' && Object.keys(userTotals).length > 0 && (
