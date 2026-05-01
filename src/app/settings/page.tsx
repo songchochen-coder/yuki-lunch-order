@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import { Member, BalanceTransaction, todayStr } from '@/lib/types';
 import { getSettings, saveSettings } from '@/lib/settings';
-import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions, getUnpaidOrders, settleUnpaidWithBalance, getOrders, getRetentionCutoff, getExpiredSummary, deleteExpiredData, exportAllData } from '@/lib/client-db';
+import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions, getUnpaidOrders, settleUnpaidWithBalance, getOrders, getRetentionCutoff, getExpiredSummary, deleteExpiredData, exportAllData, validateBackup, importBackup, type BackupSnapshot } from '@/lib/client-db';
 import { AppSkin, getSkin, saveSkin, applySkin, COLOR_PRESETS, WALLPAPER_PRESETS } from '@/lib/skin';
 
 export default function SettingsPage() {
@@ -71,15 +71,95 @@ export default function SettingsPage() {
 
   function handleExportData() {
     const data = exportAllData();
-    const json = JSON.stringify(data, null, 2);
+    triggerDownload(JSON.stringify(data, null, 2), `lunch-order-backup-${todayStr()}.json`);
+    showToast('已匯出備份');
+  }
+
+  // Tiny helper used by both export and the safety snapshot taken before
+  // import. Centralises the URL.createObjectURL / click / revoke dance.
+  function triggerDownload(json: string, filename: string) {
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `lunch-order-backup-${todayStr()}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('已匯出備份');
+  }
+
+  function handleImportBackup(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset the input so picking the same filename twice still triggers change
+    e.target.value = '';
+
+    const reader = new FileReader();
+    reader.onerror = () => showToast('讀取檔案失敗');
+    reader.onload = (event) => {
+      const text = event.target?.result as string | undefined;
+      if (!text) { showToast('檔案內容為空'); return; }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        showToast('檔案不是有效的 JSON');
+        return;
+      }
+
+      const v = validateBackup(parsed);
+      if (!v.ok) {
+        alert('備份檔格式錯誤：\n\n' + v.errors.join('\n'));
+        return;
+      }
+
+      const exportedAtLabel = v.exportedAt
+        ? new Date(v.exportedAt).toLocaleString('zh-TW', { hour12: false })
+        : '未知';
+      const msg = [
+        '即將從備份還原資料：',
+        '',
+        `備份時間：${exportedAtLabel}`,
+        `備份內容：`,
+        `  · 訂單：${v.counts.orders} 筆`,
+        `  · 成員：${v.counts.members} 位`,
+        `  · 交易紀錄：${v.counts.transactions} 筆`,
+        `  · 菜單：${v.counts.menus} 個`,
+        '',
+        '⚠️ 目前裝置上的所有資料會被「完全取代」（無法復原）。',
+        '',
+        '為了安全，系統會先自動下載目前資料的快照備份。',
+        '繼續嗎？',
+      ].join('\n');
+      if (!confirm(msg)) return;
+
+      // Safety net: snapshot current state before the destructive import.
+      try {
+        const safety = exportAllData();
+        triggerDownload(
+          JSON.stringify(safety, null, 2),
+          `lunch-order-pre-import-${todayStr()}.json`,
+        );
+      } catch {
+        if (!confirm('安全快照下載失敗。仍要強制還原嗎？')) return;
+      }
+
+      try {
+        const result = importBackup(parsed as BackupSnapshot);
+        // Reload everything so the page reflects the new state
+        setMembers(dbGetMembers());
+        const settings = getSettings();
+        const months = settings.retentionMonths ?? 4;
+        setRetentionMonths(months);
+        refreshMaintSummary(months);
+        showToast(
+          `已還原：${result.imported.orders} 訂單 / ${result.imported.members} 成員 / ${result.imported.transactions} 交易 / ${result.imported.menus} 菜單`,
+        );
+      } catch (err) {
+        alert('還原失敗：' + (err instanceof Error ? err.message : String(err)));
+      }
+    };
+    reader.readAsText(file);
   }
 
   function handleCleanupExpired() {
@@ -642,11 +722,42 @@ export default function SettingsPage() {
           >
             💾 匯出全部備份 (JSON)
           </button>
+
+          {/* Native file picker styled as a button via <label>. The hidden
+              input fills the label so the whole area is tappable. Reset
+              afterwards so picking the same file again still triggers onChange. */}
+          <label
+            className="btn btn-block"
+            style={{
+              background: 'var(--color-bg-input)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+              fontSize: 14,
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            📥 從備份還原 (JSON)
+            <input
+              type="file"
+              accept=".json,application/json"
+              onChange={handleImportBackup}
+              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
+            />
+          </label>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            💡 還原會先自動下載目前資料的快照，才覆蓋。建議搭配「匯出備份」當定期備份習慣。
+          </p>
+
           {retentionMonths > 0 && (maintSummary.expiredOrders > 0 || maintSummary.expiredTx > 0) && (
             <button
               className="btn btn-block"
               onClick={handleCleanupExpired}
-              style={{ background: 'var(--color-tint-warning)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 14 }}
+              style={{ background: 'var(--color-tint-warning)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', fontSize: 14, marginTop: 4 }}
             >
               🧹 清理 {maintSummary.expiredOrders} 筆過期訂單 / {maintSummary.expiredTx} 筆交易
             </button>

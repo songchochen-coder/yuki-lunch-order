@@ -462,16 +462,19 @@ export function deleteExpiredData(cutoffDate: string): { deletedOrders: number; 
   return { deletedOrders, deletedTransactions };
 }
 
-// Return EVERYTHING as a JSON-serialisable snapshot. Intended for manual
-// backup before the user prunes old records.
-export function exportAllData(): {
+export interface BackupSnapshot {
   version: number;
   exportedAt: string;
   orders: LunchOrder[];
   members: Member[];
   transactions: BalanceTransaction[];
   menus: MenuTemplate[];
-} {
+}
+
+// Return EVERYTHING as a JSON-serialisable snapshot. Intended for manual
+// backup before the user prunes old records — also re-used as the safety
+// auto-export taken just before importBackup() overwrites everything.
+export function exportAllData(): BackupSnapshot {
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -479,6 +482,78 @@ export function exportAllData(): {
     members: getMembers(),
     transactions: getTransactions(),
     menus: getMenus(),
+  };
+}
+
+export interface ImportValidation {
+  ok: boolean;
+  errors: string[];
+  counts: { orders: number; members: number; transactions: number; menus: number };
+  exportedAt: string | null;
+}
+
+// Verify a backup-shaped object before any destructive write. Validates the
+// top-level structure plus a sample of each array's required fields. The UI
+// uses the result to decide whether to even prompt the user to overwrite.
+export function validateBackup(data: unknown): ImportValidation {
+  const errors: string[] = [];
+  const counts = { orders: 0, members: 0, transactions: 0, menus: 0 };
+
+  if (!data || typeof data !== 'object') {
+    return { ok: false, errors: ['檔案不是有效的 JSON 物件'], counts, exportedAt: null };
+  }
+  const d = data as Record<string, unknown>;
+
+  if (!Array.isArray(d.orders)) errors.push('缺少 orders 陣列');
+  else counts.orders = d.orders.length;
+
+  if (!Array.isArray(d.members)) errors.push('缺少 members 陣列');
+  else counts.members = d.members.length;
+
+  if (!Array.isArray(d.transactions)) errors.push('缺少 transactions 陣列');
+  else counts.transactions = d.transactions.length;
+
+  if (!Array.isArray(d.menus)) errors.push('缺少 menus 陣列');
+  else counts.menus = d.menus.length;
+
+  // Spot-check first item shape on each non-empty array
+  if (Array.isArray(d.orders) && d.orders.length > 0) {
+    const o = d.orders[0] as Record<string, unknown>;
+    if (typeof o?.id !== 'string' || typeof o?.user !== 'string' || typeof o?.totalAmount !== 'number') {
+      errors.push('orders 內容格式異常');
+    }
+  }
+  if (Array.isArray(d.members) && d.members.length > 0) {
+    const m = d.members[0] as Record<string, unknown>;
+    if (typeof m?.name !== 'string' || typeof m?.balance !== 'number') {
+      errors.push('members 內容格式異常');
+    }
+  }
+
+  const exportedAt = typeof d.exportedAt === 'string' ? d.exportedAt : null;
+  return { ok: errors.length === 0, errors, counts, exportedAt };
+}
+
+// Atomically replace every store with the contents of a validated backup.
+// Caller is expected to have already saved a safety snapshot of the current
+// state via exportAllData() — see the settings page handler.
+export function importBackup(data: BackupSnapshot): { imported: { orders: number; members: number; transactions: number; menus: number } } {
+  if (typeof window === 'undefined') throw new Error('localStorage unavailable');
+  const v = validateBackup(data);
+  if (!v.ok) throw new Error('備份資料無效：' + v.errors.join('；'));
+
+  writeStore('lunch-orders', data.orders);
+  writeStore('lunch-members', data.members);
+  writeStore('lunch-transactions', data.transactions);
+  writeStore('lunch-menus', data.menus);
+
+  return {
+    imported: {
+      orders: data.orders.length,
+      members: data.members.length,
+      transactions: data.transactions.length,
+      menus: data.menus.length,
+    },
   };
 }
 
