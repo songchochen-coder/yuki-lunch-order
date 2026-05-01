@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [depositDate, setDepositDate] = useState(todayStr());
   const [depositMode, setDepositMode] = useState<'add' | 'deduct'>('add');
+  const [depositNote, setDepositNote] = useState('');
   const [skin, setSkinState] = useState<AppSkin>({ primaryColor: '#F4A261', wallpaper: null, colorScheme: 'light', textSize: 'normal' });
   const [retentionMonths, setRetentionMonths] = useState<number>(4);
   const [maintSummary, setMaintSummary] = useState<{ totalOrders: number; expiredOrders: number; protectedUnpaid: number; expiredTx: number; earliest: string | null }>({
@@ -150,7 +151,8 @@ export default function SettingsPage() {
         if (!member) { showToast('找不到成員'); return; }
         if (!confirm(`確認從 ${depositUser} 的儲值金扣回 $${amt}？\n目前餘額 $${member.balance} → 扣後 $${member.balance - amt}`)) return;
       }
-      dbAdjustBalance(depositUser, signed, undefined, depositDate);
+      const note = depositNote.trim() || undefined;
+      dbAdjustBalance(depositUser, signed, note, depositDate);
       setMembers(prev => prev.map(m =>
         m.name === depositUser ? { ...m, balance: m.balance + signed } : m
       ));
@@ -159,6 +161,7 @@ export default function SettingsPage() {
         ? `已為 ${depositUser} 儲值 $${amt}${dateLabel}`
         : `已從 ${depositUser} 扣回 $${amt}${dateLabel}`);
       setDepositAmount('');
+      setDepositNote('');
 
       // After a successful ADD, offer to back-settle any unpaid orders with
       // the freshly-topped-up balance. Skip for DEDUCT since we just removed
@@ -382,6 +385,17 @@ export default function SettingsPage() {
               type="date"
               value={depositDate}
               onChange={e => setDepositDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="input-label">備註（選填）</label>
+            <input
+              className="input"
+              type="text"
+              placeholder={depositMode === 'add' ? '例：紅包錢、月薪、退費...' : '例：扣多了、結清...'}
+              value={depositNote}
+              onChange={e => setDepositNote(e.target.value)}
+              maxLength={40}
             />
           </div>
           <button

@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
-import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod, todayStr, toLocalDateStr } from '@/lib/types';
-import { getOrders, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, editOrder as dbEditOrder, getMembers } from '@/lib/client-db';
+import { LunchOrder, Member, BalanceTransaction, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod, todayStr, toLocalDateStr } from '@/lib/types';
+import { getOrders, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, editOrder as dbEditOrder, getMembers, getTransactions } from '@/lib/client-db';
 
 export default function HistoryPage() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
+  const [standaloneTxs, setStandaloneTxs] = useState<BalanceTransaction[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
@@ -31,6 +32,18 @@ export default function HistoryPage() {
       return true;
     });
     setOrders(filtered);
+
+    // Standalone balance changes (manual deposit / 扣回): no orderId attached.
+    // Order-linked transactions (auto-deduct on creation, refund on delete,
+    // cash-receipt on collection) duplicate visible orders, so skip them.
+    const txs = getTransactions();
+    const standalone = txs.filter(t =>
+      !t.orderId &&
+      t.date >= dateFrom &&
+      t.date <= dateTo &&
+      (selectedMember === 'all' || t.user === selectedMember)
+    );
+    setStandaloneTxs(standalone);
   }, [dateFrom, dateTo, selectedMember]);
 
   useEffect(() => {
@@ -116,6 +129,14 @@ export default function HistoryPage() {
     byMethod[m] += o.totalAmount;
   }
 
+  // Manual balance changes (sorted newest-first for display)
+  const sortedTxs = [...standaloneTxs].sort((a, b) =>
+    b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
+  const totalDeposits = sortedTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
+  const totalDeducts = sortedTxs.filter(t => t.type === 'deduct').reduce((s, t) => s + t.amount, 0);
+  const netBalanceChange = totalDeposits - totalDeducts;
+
   const userTotals: Record<string, number> = {};
   for (const o of orders) {
     userTotals[o.user] = (userTotals[o.user] || 0) + o.totalAmount;
@@ -185,7 +206,25 @@ export default function HistoryPage() {
         const balPart = typeof bal === 'number' ? `  (餘 $${bal.toLocaleString()})` : '';
         lines.push(`  ${user}: $${total.toLocaleString()}${balPart}`);
       }
-    } else if (selectedMember !== 'all') {
+    }
+
+    // Manual deposit / 扣回 in the range (oldest first reads more naturally
+    // in chat: "1/15 +1000, then 2/3 -200" tells a story top-down)
+    if (sortedTxs.length > 0) {
+      lines.push('');
+      lines.push('💰 儲值金加減：');
+      const oldestFirst = [...sortedTxs].reverse();
+      for (const tx of oldestFirst) {
+        const sign = tx.type === 'deposit' ? '+' : '−';
+        const userPart = selectedMember === 'all' ? ` ${tx.user}` : '';
+        const noteSuffix = tx.description ? `  ${tx.description}` : '';
+        lines.push(`  ${formatDate(tx.date)}${userPart} ${sign}$${tx.amount.toLocaleString()}${noteSuffix}`);
+      }
+      const sign = netBalanceChange >= 0 ? '+' : '−';
+      lines.push(`  本期淨變動：${sign}$${Math.abs(netBalanceChange).toLocaleString()}`);
+    }
+
+    if (selectedMember !== 'all') {
       const bal = members.find(m => m.name === selectedMember)?.balance;
       if (typeof bal === 'number') {
         lines.push('');
@@ -421,8 +460,47 @@ export default function HistoryPage() {
           );
         })()}
 
+        {/* Manual deposit / 扣回 entries in this range */}
+        {sortedTxs.length > 0 && (
+          <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+              💰 儲值金加減（{sortedTxs.length} 筆）
+            </p>
+            <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+              {sortedTxs.map(tx => {
+                const isCredit = tx.type === 'deposit';
+                const [, mm, dd] = tx.date.split('-');
+                const dateLabel = mm && dd ? `${parseInt(mm)}/${parseInt(dd)}` : tx.date;
+                return (
+                  <div key={tx.id} className="flex justify-between items-start text-xs py-1" style={{ gap: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ color: 'var(--color-text-muted)' }}>{dateLabel}</span>
+                      {selectedMember === 'all' && (
+                        <span className="ml-2" style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>{tx.user}</span>
+                      )}
+                      <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>{tx.description}</span>
+                    </div>
+                    <span style={{ fontWeight: 700, color: isCredit ? 'var(--color-success)' : 'var(--color-danger)', whiteSpace: 'nowrap' }}>
+                      {isCredit ? '+' : '−'}${tx.amount.toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between text-xs mt-1 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>本期淨變動</span>
+              <span style={{
+                fontWeight: 700,
+                color: netBalanceChange > 0 ? 'var(--color-success)' : netBalanceChange < 0 ? 'var(--color-danger)' : 'var(--color-text)',
+              }}>
+                {netBalanceChange >= 0 ? '+' : '−'}${Math.abs(netBalanceChange).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Copy / Share actions */}
-        {orders.length > 0 && (
+        {(orders.length > 0 || sortedTxs.length > 0) && (
           <div style={{ display: 'flex', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--color-border-subtle)' }}>
             <button
               className="btn flex-1"
