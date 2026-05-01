@@ -73,6 +73,15 @@ export default function HistoryPage() {
     setDateFrom(toLocalDateStr(lastMon));
     setDateTo(toLocalDateStr(lastFri));
   }
+  function applyNextWeek() {
+    const t = todayStr();
+    const nextMon = new Date(getWeekStart(t) + 'T00:00:00');
+    nextMon.setDate(nextMon.getDate() + 7);
+    const nextFri = new Date(nextMon);
+    nextFri.setDate(nextFri.getDate() + 4);
+    setDateFrom(toLocalDateStr(nextMon));
+    setDateTo(toLocalDateStr(nextFri));
+  }
   function applyThisMonth() {
     const t = todayStr();
     const [y, m] = t.split('-');
@@ -93,6 +102,12 @@ export default function HistoryPage() {
     const lastFri = new Date(lastMon);
     lastFri.setDate(lastFri.getDate() + 4);
     if (dateFrom === toLocalDateStr(lastMon) && dateTo === toLocalDateStr(lastFri)) return 'last-week';
+
+    const nextMon = new Date(thisWeekStart + 'T00:00:00');
+    nextMon.setDate(nextMon.getDate() + 7);
+    const nextFri = new Date(nextMon);
+    nextFri.setDate(nextFri.getDate() + 4);
+    if (dateFrom === toLocalDateStr(nextMon) && dateTo === toLocalDateStr(nextFri)) return 'next-week';
 
     const [y, m] = t.split('-');
     const lastDay = new Date(Number(y), Number(m), 0).getDate();
@@ -355,6 +370,7 @@ export default function HistoryPage() {
             {([
               { key: 'this-week',  label: '本週', fn: applyThisWeek  },
               { key: 'last-week',  label: '上週', fn: applyLastWeek  },
+              { key: 'next-week',  label: '下週', fn: applyNextWeek  },
               { key: 'this-month', label: '本月', fn: applyThisMonth },
             ] as const).map(p => {
               const active = preset === p.key;
