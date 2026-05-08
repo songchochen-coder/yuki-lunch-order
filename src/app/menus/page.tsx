@@ -14,6 +14,7 @@ export default function MenusPage() {
   const [editItems, setEditItems] = useState<OrderItem[]>([]);
   const [editPhone, setEditPhone] = useState('');
   const [editClosedDays, setEditClosedDays] = useState('');
+  const [bulkAmount, setBulkAmount] = useState('');
   const [toast, setToast] = useState('');
 
   // Drag-to-reorder state
@@ -39,6 +40,37 @@ export default function MenusPage() {
     setEditItems(menu.items.map(i => ({ ...i })));
     setEditPhone(menu.phone || '');
     setEditClosedDays(menu.closedDays || '');
+    setBulkAmount('');
+  }
+
+  // Bulk adjust prices for the menu currently being edited.
+  // Skips empty (no name) and freebie ($0) rows so "免費附湯" rows aren't
+  // accidentally bumped. Floors negative results at 0. Only mutates the
+  // edit draft — caller still needs to press 儲存 to persist, and 取消
+  // restores the original.
+  function applyBulkAdjust(n: number) {
+    if (!Number.isFinite(n) || n === 0) return;
+    const eligible = editItems.filter(i => i.name.trim() && i.price > 0);
+    if (eligible.length === 0) {
+      showToast('沒有可調整的品項');
+      return;
+    }
+    setEditItems(prev => prev.map(item => {
+      if (!item.name.trim() || item.price <= 0) return item;
+      return { ...item, price: Math.max(0, item.price + n) };
+    }));
+    const verb = n > 0 ? '+' : '−';
+    showToast(`全部 ${verb}${Math.abs(n)} 元（${eligible.length} 個品項）`);
+  }
+
+  function applyBulkCustom() {
+    const n = parseInt(bulkAmount, 10);
+    if (!Number.isFinite(n) || n === 0) {
+      showToast('請輸入非零數字');
+      return;
+    }
+    applyBulkAdjust(n);
+    setBulkAmount('');
   }
 
   function updateEditItem(idx: number, field: keyof OrderItem, value: string | number) {
@@ -267,6 +299,50 @@ export default function MenusPage() {
                     );
                   })}
                   <button className="btn btn-ghost text-xs" style={{ color: 'var(--color-primary)' }} onClick={addEditItem}>+ 新增品項</button>
+
+                  {/* Bulk price adjust — applies to all named, non-zero items in this menu's edit draft */}
+                  <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: 10, marginTop: 6 }}>
+                    <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                      批次調整全部品項價格（0元品項不調，需按儲存才生效）
+                    </p>
+                    <div className="flex flex-wrap gap-2 items-center" style={{ marginBottom: 8 }}>
+                      {[-10, -5, 5, 10].map(n => (
+                        <button
+                          key={n}
+                          className="text-xs"
+                          onClick={() => applyBulkAdjust(n)}
+                          style={{
+                            padding: '5px 12px',
+                            borderRadius: 14,
+                            background: 'var(--color-bg-input)',
+                            border: '1px solid var(--color-border)',
+                            color: 'var(--color-text-secondary)',
+                            cursor: 'pointer',
+                            minWidth: 44,
+                          }}
+                        >
+                          {n > 0 ? `+${n}` : n}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        className="input text-sm"
+                        style={{ width: 110 }}
+                        placeholder="+5 或 -5"
+                        value={bulkAmount}
+                        onChange={e => setBulkAmount(e.target.value)}
+                      />
+                      <button
+                        className="btn btn-ghost text-xs"
+                        style={{ color: 'var(--color-primary)' }}
+                        onClick={applyBulkCustom}
+                      >
+                        套用
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col gap-1">
