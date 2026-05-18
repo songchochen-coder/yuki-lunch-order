@@ -89,6 +89,7 @@ export default function Home() {
           {formatDate(weekDates[0])} ~ {formatDate(weekDates[4])}
         </span>
       </div>
+      <div className="title-divider" />
 
       {/* Balance alert banner — surfaces members who owe money (negative) or are
           running low (0–199). Renders nothing when everyone is fine, so it
@@ -110,7 +111,7 @@ export default function Home() {
         return (
           <Link
             href="/settings"
-            className="card mb-4"
+            className="card mb-4 alert-banner"
             style={{
               display: 'block',
               background: bg,
@@ -150,20 +151,26 @@ export default function Home() {
       })()}
 
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="card">
+        <div className="card fade-up fade-up-1">
           <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>今日花費</p>
-          <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>${todayTotal.toLocaleString()}</p>
+          <p className="font-bold" style={{ color: 'var(--color-primary)' }}>
+            <span style={{ fontSize: '0.72em', opacity: 0.6, fontWeight: 600, marginRight: 1 }}>$</span>
+            <span style={{ fontSize: '1.35rem', letterSpacing: '-0.01em' }}>{todayTotal.toLocaleString()}</span>
+          </p>
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{todayOrders.length} 筆訂單</p>
         </div>
-        <div className="card">
+        <div className="card fade-up fade-up-2">
           <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>本週總計</p>
-          <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>${weekTotal.toLocaleString()}</p>
+          <p className="font-bold" style={{ color: 'var(--color-primary)' }}>
+            <span style={{ fontSize: '0.72em', opacity: 0.6, fontWeight: 600, marginRight: 1 }}>$</span>
+            <span style={{ fontSize: '1.35rem', letterSpacing: '-0.01em' }}>{weekTotal.toLocaleString()}</span>
+          </p>
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{orders.length} 筆訂單</p>
         </div>
       </div>
 
       {members.length > 0 && (
-        <div className="card mb-4">
+        <div className="card mb-4 fade-up fade-up-3">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold flex items-center gap-1">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -215,7 +222,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 mt-6 mb-4">
+      <div className="grid grid-cols-2 gap-3 mt-6 mb-4 fade-up fade-up-4">
         <Link href="/add" className="btn btn-primary btn-lg flex flex-col items-center gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/snoopy/food-hero.png" alt="" style={{ width: 56, height: 56, objectFit: 'contain' }} />

@@ -133,22 +133,43 @@ body {
   font-weight: 600;
   font-size: 0.875rem; /* 14px @ 16px root — scales with html.text-large */
   cursor: pointer;
-  transition: all 0.2s ease;
+  /* Bouncy spring on release (release uses this longer easing); press uses a
+     shorter ease-out below for a quick "squish". Net effect: gentle bounce. */
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.2s ease, box-shadow 0.2s ease;
   border: none;
   text-decoration: none;
 }
 
+/* Primary action button — soft gradient + tinted shadow so it sits "on" the
+   page instead of being a flat slab. color-mix derives the lighter stop from
+   the user's chosen primary, so the gradient adapts when they switch skins
+   (霧藍 / 抹茶 / 蜜桃 …) instead of always ending in peach. */
 .btn-primary {
-  background: var(--color-primary);
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    color-mix(in srgb, var(--color-primary) 72%, white) 100%
+  );
   color: white;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+html.dark .btn-primary {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-dark) 0%,
+    var(--color-primary) 100%
+  );
 }
 
 .btn-primary:hover {
-  background: var(--color-primary-dark);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 38%, transparent);
 }
 
 .btn-primary:active {
-  transform: scale(0.98);
+  transform: scale(0.95);
+  transition: transform 0.08s ease-out;
 }
 
 .btn-outline {
@@ -165,7 +186,7 @@ body {
 .btn-lg {
   padding: var(--spacing-md) var(--spacing-lg);
   font-size: 1rem; /* 16px @ root */
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg); /* 16px — slightly rounder for the 4 hero buttons on home */
 }
 
 .btn-block {
@@ -238,6 +259,14 @@ body {
   align-items: center;
   justify-content: center;
   height: 32px;
+  width: 48px;
+  border-radius: var(--radius-full);
+  /* Pill background appears behind the active tab's icon */
+  transition: background 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-item.active .nav-icon {
+  background: var(--color-tint-primary);
 }
 
 /* Progress Bar */
@@ -282,4 +311,67 @@ body {
   font-weight: 600;
   z-index: 300;
   box-shadow: var(--shadow-md);
+  /* Slide-down entrance. Final keyframe matches base translateX so the toast
+     stays put after the animation ends. */
+  animation: toast-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============ Page-level animations ============
+   Tasteful micro-interactions — stagger on card lists, soft pop on the
+   balance alert banner, dotted divider under page titles. All disabled
+   under prefers-reduced-motion below. */
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes alert-pop {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.98); }
+  60%  { opacity: 1; transform: translateY(0)   scale(1.012); }
+  100% { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.fade-up {
+  animation: fade-up 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.fade-up-1 { animation-delay: 40ms; }
+.fade-up-2 { animation-delay: 100ms; }
+.fade-up-3 { animation-delay: 160ms; }
+.fade-up-4 { animation-delay: 220ms; }
+.fade-up-5 { animation-delay: 280ms; }
+
+.alert-banner {
+  animation: alert-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Dotted underline under page titles — adds a "designed" touch without being
+   loud. Color-matches the subtle border so it disappears in dark mode-ish
+   ambient ways. */
+.title-divider {
+  height: 6px;
+  margin-bottom: var(--spacing-md);
+  background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1.6px);
+  background-size: 8px 6px;
+  background-repeat: repeat-x;
+  background-position: left center;
+  opacity: 0.6;
+}
+
+/* Respect users who've turned off motion in their OS. */
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .alert-banner,
+  .toast {
+    animation: none !important;
+  }
+  .btn,
+  .nav-item .nav-icon {
+    transition: none !important;
+  }
 }
