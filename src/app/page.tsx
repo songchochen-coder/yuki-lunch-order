@@ -80,6 +80,59 @@ export default function Home() {
         </span>
       </div>
 
+      {/* Balance alert banner — surfaces members who owe money (negative) or are
+          running low (0–199). Renders nothing when everyone is fine, so it
+          self-clears the moment balances recover. Whole banner is a Link to
+          /settings so a single tap takes you to the deposit form. */}
+      {(() => {
+        const negative = members.filter(m => m.balance < 0);
+        const low = members.filter(m => m.balance >= 0 && m.balance < 200);
+        if (negative.length === 0 && low.length === 0) return null;
+        const hasNegative = negative.length > 0;
+        const accent = hasNegative ? 'var(--color-danger)' : 'var(--color-warning)';
+        const bg = hasNegative ? 'var(--color-tint-danger)' : 'var(--color-tint-warning)';
+        return (
+          <Link
+            href="/settings"
+            className="card mb-4"
+            style={{
+              display: 'block',
+              background: bg,
+              border: `1.5px solid ${accent}`,
+              textDecoration: 'none',
+              color: 'inherit',
+            }}
+          >
+            <p className="text-sm font-bold mb-2" style={{ color: accent }}>
+              ⚠️ {hasNegative ? '有成員儲值金不足' : '有成員餘額偏低'}
+            </p>
+            <div className="flex flex-col gap-1">
+              {negative.map(m => (
+                <div key={m.name} className="flex justify-between text-xs">
+                  <span>{m.name}</span>
+                  <span>
+                    <span style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{formatBalance(m.balance)}</span>
+                    <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>已欠款</span>
+                  </span>
+                </div>
+              ))}
+              {low.map(m => (
+                <div key={m.name} className="flex justify-between text-xs">
+                  <span>{m.name}</span>
+                  <span>
+                    <span style={{ color: 'var(--color-warning)', fontWeight: 600 }}>{formatBalance(m.balance)}</span>
+                    <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>偏低</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+              點此到設定儲值 →
+            </p>
+          </Link>
+        );
+      })()}
+
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="card">
           <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>今日花費</p>
