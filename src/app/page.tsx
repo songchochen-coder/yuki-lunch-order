@@ -4,12 +4,17 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, todayStr, formatBalance } from '@/lib/types';
-import { getOrdersByWeek, getMembers, getUnpaidTotalsByUser, collectAllForUser } from '@/lib/client-db';
+import { getOrdersByWeek, getMembers, getUnpaidTotalsByUser, collectAllForUser, getTransactions } from '@/lib/client-db';
 
 export default function Home() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [unpaidTotals, setUnpaidTotals] = useState<Record<string, number>>({});
+  // Names of members who have ever interacted with the stored-value system
+  // (deposit or deduct transaction). Used to suppress the low-balance banner
+  // for members who pay cash only — their $0 isn't "running low", it just
+  // means they don't use the balance feature at all.
+  const [activeBalanceUsers, setActiveBalanceUsers] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
 
@@ -26,6 +31,11 @@ export default function Home() {
     setOrders(getOrdersByWeek(weekStart));
     setMembers(getMembers());
     setUnpaidTotals(getUnpaidTotalsByUser());
+    const active = new Set<string>();
+    for (const t of getTransactions()) {
+      if (t.type === 'deposit' || t.type === 'deduct') active.add(t.user);
+    }
+    setActiveBalanceUsers(active);
     setLoading(false);
   }, [weekStart]);
 
@@ -85,8 +95,14 @@ export default function Home() {
           self-clears the moment balances recover. Whole banner is a Link to
           /settings so a single tap takes you to the deposit form. */}
       {(() => {
+        // Negative balance always warrants alert (clearly engaged with the
+        // system). Low (0–199) only counts if they've actually used stored
+        // value before — otherwise $0 means "doesn't use this feature",
+        // not "running low".
         const negative = members.filter(m => m.balance < 0);
-        const low = members.filter(m => m.balance >= 0 && m.balance < 200);
+        const low = members.filter(m =>
+          m.balance >= 0 && m.balance < 200 && activeBalanceUsers.has(m.name)
+        );
         if (negative.length === 0 && low.length === 0) return null;
         const hasNegative = negative.length > 0;
         const accent = hasNegative ? 'var(--color-danger)' : 'var(--color-warning)';
