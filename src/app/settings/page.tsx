@@ -301,9 +301,10 @@ export default function SettingsPage() {
         <img src="/snoopy/settings.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
         <span>設定</span>
       </h1>
+      <div className="title-divider" />
 
       {/* Members */}
-      <div className="card mb-4">
+      <div className="card mb-4 fade-up fade-up-1">
         <p className="text-sm font-semibold mb-3">團隊成員</p>
         <div className="flex flex-col gap-2 mb-3">
           {members.map(m => (

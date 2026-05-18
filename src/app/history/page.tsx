@@ -320,9 +320,10 @@ export default function HistoryPage() {
         <img src="/snoopy/history.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
         <span>點餐紀錄</span>
       </h1>
+      <div className="title-divider" />
 
       {/* Filter card — member chips + date range + quick presets */}
-      <div className="card mb-3">
+      <div className="card mb-3 fade-up fade-up-1">
         <div className="mb-3">
           <label className="input-label">成員</label>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

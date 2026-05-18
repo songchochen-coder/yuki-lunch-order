@@ -218,9 +218,10 @@ export default function StatsPage() {
         <img src="/snoopy/stats.png" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
         <span>統計</span>
       </h1>
+      <div className="title-divider" />
 
       {/* Tab Toggle */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 fade-up fade-up-1">
         <button
           className="btn flex-1"
           onClick={() => setTab('order')}

@@ -177,8 +177,9 @@ export default function AddPage() {
           <span>點餐</span>
         </h1>
       </div>
+      <div className="title-divider" />
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 fade-up fade-up-1">
         <button className="btn flex-1" onClick={() => { setMode('menu'); resetForm(); }} style={{ background: mode === 'menu' ? 'var(--color-primary)' : 'var(--color-bg-input)', color: mode === 'menu' ? 'white' : 'var(--color-text)', border: mode === 'menu' ? 'none' : '1px solid var(--color-border)' }}>
           📖 從菜單庫選
         </button>

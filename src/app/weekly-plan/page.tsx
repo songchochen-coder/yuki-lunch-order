@@ -204,9 +204,10 @@ export default function WeeklyPlanPage() {
           <span>預排點餐</span>
         </h1>
       </div>
+      <div className="title-divider" />
 
       {/* Add date */}
-      <div className="card mb-4">
+      <div className="card mb-4 fade-up fade-up-1">
         <label className="input-label">新增預排日期</label>
         <div className="flex gap-2">
           <input

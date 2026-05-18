@@ -100,6 +100,7 @@ export default function ScanPage() {
           <span>拍照辨識菜單</span>
         </h1>
       </div>
+      <div className="title-divider" />
 
       {loading ? (
         <div className="card flex flex-col items-center justify-center py-16 gap-4">

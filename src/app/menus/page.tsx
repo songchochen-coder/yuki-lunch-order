@@ -173,9 +173,11 @@ export default function MenusPage() {
           <span>菜單庫</span>
         </h1>
       </div>
+      <div className="title-divider" />
 
       {/* Hero cover illustration — sets the mood for the menu library page */}
       <div
+        className="fade-up fade-up-1"
         style={{
           marginBottom: 16,
           borderRadius: 'var(--radius-md)',
