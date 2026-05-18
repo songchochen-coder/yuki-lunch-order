@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import BottomNav from '@/components/BottomNav';
-import { Member, BalanceTransaction, todayStr } from '@/lib/types';
+import { Member, BalanceTransaction, todayStr, formatBalance } from '@/lib/types';
 import { getSettings, saveSettings } from '@/lib/settings';
 import { getMembers as dbGetMembers, saveMember as dbSaveMember, deleteMember as dbDeleteMember, deposit as dbDeposit, adjustBalance as dbAdjustBalance, getTransactions as dbGetTransactions, getUnpaidOrders, settleUnpaidWithBalance, getOrders, getRetentionCutoff, getExpiredSummary, deleteExpiredData, exportAllData, validateBackup, importBackup, type BackupSnapshot } from '@/lib/client-db';
 import { AppSkin, getSkin, saveSkin, applySkin, COLOR_PRESETS, WALLPAPER_PRESETS } from '@/lib/skin';
@@ -229,7 +229,7 @@ export default function SettingsPage() {
       if (depositMode === 'deduct') {
         const member = members.find(m => m.name === depositUser);
         if (!member) { showToast('找不到成員'); return; }
-        if (!confirm(`確認從 ${depositUser} 的儲值金扣回 $${amt}？\n目前餘額 $${member.balance} → 扣後 $${member.balance - amt}`)) return;
+        if (!confirm(`確認從 ${depositUser} 的儲值金扣回 $${amt}？\n目前餘額 ${formatBalance(member.balance)} → 扣後 ${formatBalance(member.balance - amt)}`)) return;
       }
       const note = depositNote.trim() || undefined;
       dbAdjustBalance(depositUser, signed, note, depositDate);
@@ -254,8 +254,8 @@ export default function SettingsPage() {
           const balanceAfter = current?.balance ?? 0;
           const canAll = balanceAfter >= unpaidTotal;
           const msg = canAll
-            ? `${depositUser} 有 ${unpaid.length} 筆未付款共 $${unpaidTotal.toLocaleString()}。\n儲值後餘額 $${balanceAfter.toLocaleString()} 夠全部抵扣。\n\n要從儲值金扣掉嗎？`
-            : `${depositUser} 有 ${unpaid.length} 筆未付款共 $${unpaidTotal.toLocaleString()}。\n儲值後餘額 $${balanceAfter.toLocaleString()}，只夠抵扣最舊的幾筆。\n\n要先抵扣可負擔的部分嗎？剩下未扣的保持未付款。`;
+            ? `${depositUser} 有 ${unpaid.length} 筆未付款共 $${unpaidTotal.toLocaleString()}。\n儲值後餘額 ${formatBalance(balanceAfter)} 夠全部抵扣。\n\n要從儲值金扣掉嗎？`
+            : `${depositUser} 有 ${unpaid.length} 筆未付款共 $${unpaidTotal.toLocaleString()}。\n儲值後餘額 ${formatBalance(balanceAfter)}，只夠抵扣最舊的幾筆。\n\n要先抵扣可負擔的部分嗎？剩下未扣的保持未付款。`;
           // Defer to let the toast render first
           setTimeout(() => {
             if (confirm(msg)) {
@@ -315,7 +315,7 @@ export default function SettingsPage() {
                     className="text-sm font-bold ml-2"
                     style={{ color: m.balance < 0 ? 'var(--color-danger)' : m.balance < 200 ? 'var(--color-warning)' : 'var(--color-success)' }}
                   >
-                    ${m.balance.toLocaleString()}
+                    {formatBalance(m.balance)}
                   </span>
                 </div>
                 <div className="flex gap-2">

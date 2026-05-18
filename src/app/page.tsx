@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
-import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, todayStr } from '@/lib/types';
+import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, todayStr, formatBalance } from '@/lib/types';
 import { getOrdersByWeek, getMembers, getUnpaidTotalsByUser, collectAllForUser } from '@/lib/client-db';
 
 export default function Home() {
@@ -112,7 +112,7 @@ export default function Home() {
                   <div className="text-right flex items-center gap-2">
                     <div>
                       <span className="text-sm font-bold" style={{ color: m.balance < 0 ? 'var(--color-danger)' : m.balance < 200 ? 'var(--color-warning)' : 'var(--color-success)' }}>
-                        ${m.balance.toLocaleString()}
+                        {formatBalance(m.balance)}
                       </span>
                       {userSpending[m.name] > 0 && (
                         <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>本週 -${userSpending[m.name].toLocaleString()}</span>

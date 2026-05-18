@@ -162,3 +162,12 @@ export function formatDate(dateStr: string): string {
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
+
+// Format a signed currency amount with the minus sign in front of the dollar
+// sign — "-$200" instead of "$-200". Use this anywhere a balance can be
+// negative (member balances, anything derived from them). For amounts that
+// are always non-negative (order totals, payment-method sums) `$${n}` is fine.
+export function formatBalance(amount: number): string {
+  if (amount < 0) return `-$${Math.abs(amount).toLocaleString()}`;
+  return `$${amount.toLocaleString()}`;
+}
