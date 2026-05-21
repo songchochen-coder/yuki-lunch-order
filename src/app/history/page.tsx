@@ -5,6 +5,7 @@ import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
 import { LunchOrder, Member, BalanceTransaction, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod, todayStr, toLocalDateStr } from '@/lib/types';
 import { getOrders, deleteOrder as dbDeleteOrder, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, editOrder as dbEditOrder, getMembers, getTransactions } from '@/lib/client-db';
+import { useDataRefresh } from '@/lib/use-data-refresh';
 
 export default function HistoryPage() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
@@ -52,6 +53,12 @@ export default function HistoryPage() {
     setMembers(getMembers());
     setLoading(false);
   }, [loadOrders]);
+
+  // Re-pull from localStorage on cross-page mutations / app foregrounding.
+  useDataRefresh(() => {
+    loadOrders();
+    setMembers(getMembers());
+  });
 
   function refresh() {
     loadOrders();

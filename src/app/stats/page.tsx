@@ -5,6 +5,7 @@ import BottomNav from '@/components/BottomNav';
 import SwipeToDelete from '@/components/SwipeToDelete';
 import { LunchOrder, MenuTemplate, getWeekStart, getWeekDates, formatDate, getWeekday, formatDiscount, getPaymentMethod, todayStr } from '@/lib/types';
 import { getOrders, deleteOrder, getMenus, applyGroupDiscount, markOrderPaid as dbMarkOrderPaid, markOrderUnpaid as dbMarkOrderUnpaid, setOrderAmount as dbSetOrderAmount } from '@/lib/client-db';
+import { useDataRefresh } from '@/lib/use-data-refresh';
 
 type Tab = 'order' | 'overview';
 
@@ -125,6 +126,13 @@ export default function StatsPage() {
     setMenuList(getMenus());
     setLoading(false);
   }, []);
+
+  // Pull fresh data from localStorage whenever another page mutates it
+  // (e.g. a delete on /history) or the user returns from backgrounding the PWA.
+  useDataRefresh(() => {
+    setAllOrders(getOrders());
+    setMenuList(getMenus());
+  });
 
   // ─── Restaurant Order View (tab: order) ───
   const dayOrders = allOrders.filter(o => o.date === selectedDate);

@@ -14,6 +14,12 @@ function readStore<T>(key: string, fallback: T): T {
 function writeStore<T>(key: string, data: T): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(key, JSON.stringify(data));
+  // Broadcast so any other open page in this SPA can re-read its state.
+  // Without this, deleting an order on /history can leave the same order
+  // visible on /stats until a full reload, because Next.js may keep the
+  // /stats client component instance alive (with stale React state) when
+  // you navigate back to it.
+  window.dispatchEvent(new CustomEvent('lunch-data-changed', { detail: { key } }));
 }
 
 // ─── Orders ───

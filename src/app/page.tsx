@@ -5,6 +5,7 @@ import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import { LunchOrder, Member, getWeekStart, getWeekDates, formatDate, getWeekday, todayStr, formatBalance } from '@/lib/types';
 import { getOrdersByWeek, getMembers, getUnpaidTotalsByUser, collectAllForUser, getTransactions } from '@/lib/client-db';
+import { useDataRefresh } from '@/lib/use-data-refresh';
 
 export default function Home() {
   const [orders, setOrders] = useState<LunchOrder[]>([]);
@@ -38,6 +39,19 @@ export default function Home() {
     setActiveBalanceUsers(active);
     setLoading(false);
   }, [weekStart]);
+
+  // Re-pull on cross-page mutations (e.g. order deleted on /history) or when
+  // the user returns to the PWA after backgrounding it.
+  useDataRefresh(() => {
+    setOrders(getOrdersByWeek(weekStart));
+    setMembers(getMembers());
+    setUnpaidTotals(getUnpaidTotalsByUser());
+    const active = new Set<string>();
+    for (const t of getTransactions()) {
+      if (t.type === 'deposit' || t.type === 'deduct') active.add(t.user);
+    }
+    setActiveBalanceUsers(active);
+  });
 
   function handleCollectUser(user: string) {
     const total = unpaidTotals[user] || 0;
