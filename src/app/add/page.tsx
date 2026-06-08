@@ -142,8 +142,14 @@ export default function AddPage() {
       showToast('儲存成功！');
       // Stay on page: keep restaurant & menu selected, reset user selection & quantities
       if (mode === 'menu' && selectedMenu) {
-        // Reset item quantities to 0, keep menu visible
-        setSelectedItems(prev => prev.map(i => ({ ...i, quantity: 0 })));
+        // Reset item quantities AND clear per-item notes. Leaving notes
+        // attached caused a silent bug: the note input only renders when
+        // quantity > 0, so after a save the field disappears (looks clean)
+        // — but the next person picking the same item would re-render the
+        // input with the previous customization still typed in, easy to
+        // miss and end up saving "壽喜燒肉飯 紫菜湯" for someone who
+        // never asked for soup.
+        setSelectedItems(prev => prev.map(i => ({ ...i, quantity: 0, note: undefined })));
         // Move to next user
         const currentIdx = allUsers.indexOf(selectedUsers[0]);
         const nextUser = allUsers[(currentIdx + 1) % allUsers.length];
